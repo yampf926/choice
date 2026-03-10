@@ -2,6 +2,10 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -10,41 +14,74 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Properties;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class Main extends JFrame {
+    private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?。！？\\n]+[.!?。！？]?|\\n+");
+    private static final String DEFAULT_PLAYER_NAME = "";
+    private static final int MAX_PAGE_CHARS = 72;
+    private static final Path SAVE_PATH = Path.of("out", "save.properties");
     private static final double MOBILE_ASPECT_RATIO = 9.0 / 16.0;
-    private static final Color NIGHT = new Color(6, 8, 14);
-    private static final Color PANEL = new Color(8, 12, 20, 222);
-    private static final Color PANEL_SOFT = new Color(16, 22, 35, 214);
-    private static final Color ACCENT = new Color(146, 206, 255);
-    private static final Color ACCENT_SOFT = new Color(82, 116, 153);
-    private static final Color BUTTON = new Color(15, 22, 34);
-    private static final Color BUTTON_HOVER = new Color(31, 45, 68);
+    private static final Color NIGHT = new Color(10, 12, 18);
+    private static final Color NIGHT_DEEP = new Color(17, 21, 31);
+    private static final Color PANEL = new Color(56, 62, 74);
+    private static final Color PANEL_SOFT = new Color(66, 73, 86);
+    private static final Color PANEL_EDGE = new Color(101, 110, 128);
+    private static final Color ACCENT = new Color(146, 158, 182);
+    private static final Color ACCENT_SOFT = new Color(122, 132, 150);
+    private static final Color ACCENT_GLOW = new Color(118, 128, 154, 42);
+    private static final Color BUTTON = new Color(72, 79, 92);
+    private static final Color BUTTON_HOVER = new Color(86, 95, 110);
 
     private final JLabel titleLabel = new JLabel("", SwingConstants.LEFT);
     private final JLabel chapterLabel = new JLabel("", SwingConstants.RIGHT);
     private final JLabel backgroundLabel = new JLabel("", SwingConstants.CENTER);
     private final JLabel characterLabel = new JLabel("", SwingConstants.CENTER);
-    private final JLabel speakerLabel = new JLabel("");
-    private final JTextArea narrationArea = new JTextArea();
-    private final JTextArea dialogueArea = new JTextArea();
-    private final JLabel statusLabel = new JLabel("");
     private final JPanel scenePanel = new JPanel(null);
     private final JPanel overlayPanel = new JPanel(new BorderLayout());
-    private final JPanel hudPanel = new JPanel(new BorderLayout(0, 10));
-    private final JPanel choicesPanel = new JPanel(new GridLayout(0, 1, 0, 8));
+    private final JPanel hudPanel = new JPanel(new BorderLayout());
+    private final JTextArea storyArea = new JTextArea();
+    private final JLabel continueLabel = new JLabel("CLICK", SwingConstants.RIGHT);
+    private final JPanel storyPanel = createStoryPanel();
+    private final JLabel speakerBadge = new JLabel(" ", SwingConstants.LEFT);
+    private final JPanel choiceOverlay = new JPanel(new GridBagLayout());
+    private final JPanel choicesPanel = new JPanel(new GridLayout(0, 1, 0, 10));
+    private final JPanel startOverlay = new JPanel(new GridBagLayout());
+    private final JPanel galleryOverlay = new JPanel(new GridBagLayout());
+    private final JTextField nameField = new JTextField("");
+    private final JPanel galleryListPanel = new JPanel();
+    private final Map<String, BufferedImage> imageCache = new LinkedHashMap<>();
+    private JButton continueGameButton;
 
     private final Map<String, Scene> scenes = new LinkedHashMap<>();
     private final GameState state = new GameState();
+    private final Map<String, String> endingTitles = new LinkedHashMap<>();
+    private final Map<String, String> endingDescriptions = new LinkedHashMap<>();
 
     private Scene currentScene;
     private Timer dialogueTimer;
     private boolean adjustingFrame;
+    private List<PageEntry> scenePages = List.of();
+    private List<Choice> visibleChoices = List.of();
+    private int currentPageIndex;
+    private PageEntry currentPage = PageEntry.empty();
+    private boolean pageFullyVisible;
+    private String currentSceneId = "";
+    private String activeBackgroundImage = "";
+    private String activeCharacterImage = "";
+    private int textSpeedMs = 18;
 
     public Main() {
         setTitle("월야고등학교: 침묵의 기록");
@@ -58,14 +95,13 @@ public class Main extends JFrame {
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
         setContentPane(root);
 
-        JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setOpaque(false);
-        titleLabel.setForeground(new Color(240, 244, 250));
-        titleLabel.setFont(new Font("Serif", Font.BOLD, 24));
-        titleLabel.setBorder(new EmptyBorder(4, 8, 8, 8));
-        chapterLabel.setForeground(ACCENT);
-        chapterLabel.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        chapterLabel.setBorder(new EmptyBorder(8, 8, 8, 8));
+        JPanel topBar = createTopBar();
+        titleLabel.setForeground(new Color(220, 225, 233));
+        titleLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
+        titleLabel.setBorder(new EmptyBorder(6, 8, 10, 8));
+        chapterLabel.setForeground(new Color(160, 171, 192));
+        chapterLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
+        chapterLabel.setBorder(new EmptyBorder(10, 8, 10, 8));
         topBar.add(titleLabel, BorderLayout.WEST);
         topBar.add(chapterLabel, BorderLayout.EAST);
         root.add(topBar, BorderLayout.NORTH);
@@ -75,8 +111,8 @@ public class Main extends JFrame {
 
         backgroundLabel.setOpaque(true);
         backgroundLabel.setBackground(new Color(12, 16, 24));
-        backgroundLabel.setForeground(new Color(175, 186, 202));
-        backgroundLabel.setFont(new Font("Serif", Font.PLAIN, 18));
+        backgroundLabel.setForeground(new Color(170, 178, 194));
+        backgroundLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 18));
         backgroundLabel.setHorizontalAlignment(SwingConstants.CENTER);
         backgroundLabel.setVerticalAlignment(SwingConstants.CENTER);
         scenePanel.add(backgroundLabel);
@@ -85,60 +121,91 @@ public class Main extends JFrame {
         characterLabel.setHorizontalAlignment(SwingConstants.CENTER);
         characterLabel.setVerticalAlignment(SwingConstants.BOTTOM);
         characterLabel.setForeground(new Color(240, 244, 250));
-        characterLabel.setFont(new Font("Serif", Font.BOLD, 16));
+        characterLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 16));
         scenePanel.add(characterLabel);
 
         overlayPanel.setOpaque(false);
         scenePanel.add(overlayPanel);
 
-        narrationArea.setEditable(false);
-        narrationArea.setLineWrap(true);
-        narrationArea.setWrapStyleWord(true);
-        narrationArea.setFont(new Font("Serif", Font.PLAIN, 15));
-        narrationArea.setForeground(new Color(225, 230, 238));
-        narrationArea.setBackground(PANEL_SOFT);
-        narrationArea.setBorder(new EmptyBorder(12, 14, 12, 14));
+        storyArea.setEditable(false);
+        storyArea.setLineWrap(true);
+        storyArea.setWrapStyleWord(true);
+        storyArea.setFont(new Font("Malgun Gothic", Font.PLAIN, 18));
+        storyArea.setForeground(new Color(229, 233, 239));
+        storyArea.setBackground(PANEL);
+        storyArea.setOpaque(true);
+        storyArea.setBorder(new EmptyBorder(16, 18, 8, 18));
+        storyArea.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                advanceStory();
+            }
+        });
 
-        speakerLabel.setFont(new Font("Serif", Font.BOLD, 18));
-        speakerLabel.setForeground(new Color(241, 246, 255));
-        speakerLabel.setOpaque(true);
-        speakerLabel.setBackground(new Color(9, 18, 30, 234));
-        speakerLabel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(ACCENT_SOFT, 1),
-                new EmptyBorder(8, 12, 8, 12)
+        continueLabel.setForeground(ACCENT_SOFT);
+        continueLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 11));
+        continueLabel.setBorder(new EmptyBorder(0, 0, 4, 14));
+
+        speakerBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 14));
+        speakerBadge.setForeground(new Color(238, 241, 246));
+        speakerBadge.setOpaque(true);
+        speakerBadge.setBackground(new Color(88, 96, 116));
+        speakerBadge.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(ACCENT_SOFT, 1),
+                        BorderFactory.createLineBorder(new Color(255, 255, 255, 20), 1)
+                ),
+                new EmptyBorder(7, 12, 7, 12)
         ));
 
-        dialogueArea.setEditable(false);
-        dialogueArea.setLineWrap(true);
-        dialogueArea.setWrapStyleWord(true);
-        dialogueArea.setFont(new Font("Serif", Font.PLAIN, 17));
-        dialogueArea.setForeground(new Color(236, 239, 246));
-        dialogueArea.setBackground(PANEL);
-        dialogueArea.setBorder(new EmptyBorder(12, 14, 14, 14));
-
-        JPanel textBlock = new JPanel(new BorderLayout(0, 8));
-        textBlock.setOpaque(false);
-        textBlock.setBorder(new EmptyBorder(0, 0, 10, 0));
-        textBlock.add(wrapPanel("상황", narrationArea, PANEL_SOFT), BorderLayout.NORTH);
-        textBlock.add(wrapDialogue(), BorderLayout.CENTER);
+        storyPanel.setOpaque(false);
+        storyPanel.setPreferredSize(new Dimension(0, 180));
+        storyPanel.setMinimumSize(new Dimension(0, 180));
+        storyPanel.add(storyArea, BorderLayout.CENTER);
+        storyPanel.add(speakerBadge, BorderLayout.NORTH);
+        storyPanel.add(continueLabel, BorderLayout.SOUTH);
+        storyPanel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                advanceStory();
+            }
+        });
 
         hudPanel.setOpaque(false);
-        hudPanel.setBorder(new EmptyBorder(120, 14, 12, 14));
-        hudPanel.add(textBlock, BorderLayout.NORTH);
+        hudPanel.setBorder(new EmptyBorder(0, 18, 14, 18));
+        hudPanel.add(storyPanel, BorderLayout.SOUTH);
 
-        statusLabel.setForeground(ACCENT);
-        statusLabel.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        statusLabel.setBorder(new EmptyBorder(0, 4, 4, 0));
-        hudPanel.add(statusLabel, BorderLayout.CENTER);
+        choiceOverlay.setOpaque(false);
+        choicesPanel.setOpaque(true);
+        choicesPanel.setBackground(PANEL);
+        choicesPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(PANEL_EDGE, 1),
+                        BorderFactory.createLineBorder(new Color(255, 255, 255, 28), 1)
+                ),
+                new EmptyBorder(16, 16, 16, 16)
+        ));
+        choiceOverlay.add(choicesPanel);
+        choiceOverlay.setVisible(false);
 
-        choicesPanel.setOpaque(false);
-        hudPanel.add(choicesPanel, BorderLayout.SOUTH);
+        startOverlay.setOpaque(false);
+        startOverlay.add(createStartPanel());
+
+        galleryOverlay.setOpaque(false);
+        galleryOverlay.add(createGalleryPanel());
+        galleryOverlay.setVisible(false);
 
         overlayPanel.add(createBottomShade(), BorderLayout.CENTER);
+        overlayPanel.add(choiceOverlay, BorderLayout.CENTER);
         overlayPanel.add(hudPanel, BorderLayout.SOUTH);
+        scenePanel.add(startOverlay);
+        scenePanel.add(galleryOverlay);
 
+        initEndingMetadata();
         initScenes();
         resetState();
+        loadSaveData();
+        installKeyBindings();
 
         addComponentListener(new ComponentAdapter() {
             @Override
@@ -149,42 +216,12 @@ public class Main extends JFrame {
             }
         });
 
-        showScene("prologue_arrival");
+        showStartScreen();
         SwingUtilities.invokeLater(() -> {
             layoutSceneLayers();
             refreshImages();
             scenePanel.repaint();
         });
-    }
-
-    private JPanel wrapDialogue() {
-        JPanel panel = new JPanel(new BorderLayout(0, 4));
-        panel.setOpaque(false);
-        panel.add(speakerLabel, BorderLayout.NORTH);
-        panel.add(wrapPanel("", dialogueArea, PANEL), BorderLayout.CENTER);
-        return panel;
-    }
-
-    private JPanel wrapPanel(String name, JTextArea area, Color color) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(true);
-        panel.setBackground(color);
-        panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(ACCENT_SOFT, 1),
-                        BorderFactory.createLineBorder(new Color(255, 255, 255, 18), 1)
-                ),
-                new EmptyBorder(3, 3, 3, 3)
-        ));
-        if (!name.isEmpty()) {
-            JLabel label = new JLabel(name);
-            label.setFont(new Font("Serif", Font.BOLD, 13));
-            label.setForeground(ACCENT);
-            label.setBorder(new EmptyBorder(4, 8, 4, 0));
-            panel.add(label, BorderLayout.NORTH);
-        }
-        panel.add(area, BorderLayout.CENTER);
-        return panel;
     }
 
     private JComponent createBottomShade() {
@@ -193,12 +230,206 @@ public class Main extends JFrame {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                GradientPaint paint = new GradientPaint(0, 0, new Color(3, 6, 10, 0), 0, getHeight(), new Color(2, 4, 9, 210));
+                GradientPaint paint = new GradientPaint(0, 0, new Color(5, 7, 10, 0), 0, getHeight(), new Color(8, 10, 16, 210));
                 g2.setPaint(paint);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setPaint(new GradientPaint(0, getHeight() / 3f, new Color(0, 0, 0, 0), 0, getHeight(), ACCENT_GLOW));
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 g2.dispose();
             }
         };
+    }
+
+    private JPanel createTopBar() {
+        JPanel panel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(new Color(52, 58, 69, 236));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.setColor(new Color(198, 206, 220, 70));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 18, 18);
+                g2.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    private JPanel createStoryPanel() {
+        return new JPanel(new BorderLayout(0, 8)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 46));
+                g2.fillRoundRect(6, 8, getWidth() - 12, getHeight() - 6, 24, 24);
+                g2.setColor(new Color(52, 58, 69, 236));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
+                g2.setColor(new Color(198, 206, 220, 70));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 22, 22);
+                g2.setColor(new Color(116, 125, 144, 150));
+                g2.drawLine(20, getHeight() - 18, getWidth() - 20, getHeight() - 18);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+    }
+
+    private JPanel createStartPanel() {
+        JPanel panel = createOverlayCard(new GridBagLayout());
+        panel.setBorder(new EmptyBorder(22, 22, 22, 22));
+        panel.setPreferredSize(new Dimension(320, 424));
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
+        content.setPreferredSize(new Dimension(240, 286));
+
+        JLabel title = new JLabel("월야고등학교");
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        title.setHorizontalAlignment(SwingConstants.CENTER);
+        title.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
+        title.setForeground(new Color(212, 218, 228));
+
+        JLabel prompt = new JLabel("이름");
+        prompt.setAlignmentX(Component.CENTER_ALIGNMENT);
+        prompt.setHorizontalAlignment(SwingConstants.CENTER);
+        prompt.setFont(new Font("Malgun Gothic", Font.BOLD, 13));
+        prompt.setForeground(ACCENT);
+        prompt.setBorder(new EmptyBorder(12, 0, 6, 0));
+
+        nameField.setMaximumSize(new Dimension(240, 36));
+        nameField.setPreferredSize(new Dimension(240, 36));
+        nameField.setFont(new Font("Malgun Gothic", Font.PLAIN, 16));
+        nameField.setHorizontalAlignment(JTextField.CENTER);
+        nameField.setBackground(new Color(73, 80, 93));
+        nameField.setForeground(new Color(232, 236, 242));
+        nameField.setCaretColor(ACCENT);
+        nameField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(110, 120, 138), 1),
+                new EmptyBorder(8, 10, 8, 10)
+        ));
+        ((AbstractDocument) nameField.getDocument()).setDocumentFilter(new LengthFilter(5));
+        nameField.addActionListener(e -> startGame());
+
+        JButton startButton = createMenuButton("시작", this::startGame);
+        continueGameButton = createMenuButton("이어하기", this::continueGame);
+        JButton endingButton = createMenuButton("엔딩 모음", this::showEndingGallery);
+        JButton clearButton = createMenuButton("기록 삭제", this::clearSaveData);
+        continueGameButton.setEnabled(Files.exists(SAVE_PATH));
+
+        content.add(title);
+        content.add(prompt);
+        content.add(nameField);
+        content.add(Box.createVerticalStrut(14));
+        content.add(startButton);
+        content.add(Box.createVerticalStrut(8));
+        content.add(continueGameButton);
+        content.add(Box.createVerticalStrut(8));
+        content.add(endingButton);
+        content.add(Box.createVerticalStrut(8));
+        content.add(clearButton);
+        panel.add(content);
+        return panel;
+    }
+
+    private JPanel createGalleryPanel() {
+        JPanel panel = createOverlayCard(new BorderLayout(0, 14));
+        panel.setBorder(new EmptyBorder(22, 22, 22, 22));
+        panel.setPreferredSize(new Dimension(320, 460));
+
+        JLabel title = new JLabel("엔딩 모음");
+        title.setFont(new Font("Malgun Gothic", Font.BOLD, 21));
+        title.setForeground(new Color(216, 221, 230));
+        title.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(title, BorderLayout.NORTH);
+
+        galleryListPanel.setLayout(new BoxLayout(galleryListPanel, BoxLayout.Y_AXIS));
+        galleryListPanel.setOpaque(false);
+        panel.add(galleryListPanel, BorderLayout.CENTER);
+
+        JButton backButton = createMenuButton("돌아가기", this::showStartScreen);
+        panel.add(backButton, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JButton createMenuButton(String label, Runnable action) {
+        JButton button = new JButton(label);
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+        button.setHorizontalAlignment(SwingConstants.CENTER);
+        button.setFocusPainted(false);
+        button.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
+        button.setBackground(BUTTON);
+        button.setForeground(new Color(233, 236, 242));
+        button.setBorder(choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
+        button.setMaximumSize(new Dimension(240, 42));
+        button.setPreferredSize(new Dimension(240, 42));
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(BUTTON_HOVER);
+                button.setBorder(choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(BUTTON);
+                button.setBorder(choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
+            }
+        });
+        button.addActionListener(e -> action.run());
+        return button;
+    }
+
+    private JPanel createOverlayCard(LayoutManager layout) {
+        JPanel panel = new JPanel(layout) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 54));
+                g2.fillRoundRect(6, 8, getWidth() - 12, getHeight() - 8, 24, 24);
+                g2.setPaint(new GradientPaint(0, 0, new Color(44, 49, 60, 242), 0, getHeight(), new Color(55, 61, 73, 238)));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 26, 26);
+                g2.setColor(new Color(192, 199, 211, 60));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 26, 26);
+                g2.setColor(new Color(108, 118, 136, 130));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 24, 24);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        panel.setOpaque(false);
+        return panel;
+    }
+
+    private void initEndingMetadata() {
+        endingTitles.put("ending_true", "진실 루트");
+        endingTitles.put("ending_wrong_accusation", "오판 루트");
+        endingTitles.put("ending_silence", "침묵 루트");
+
+        endingDescriptions.put("ending_true", "무죄를 증명하고 사건을 사고로 바로잡은 결말");
+        endingDescriptions.put("ending_wrong_accusation", "누군가를 범인으로 단정해 비극을 남긴 결말");
+        endingDescriptions.put("ending_silence", "결론을 보류한 채 기록만 남긴 결말");
+    }
+
+    private void installKeyBindings() {
+        JRootPane rootPane = getRootPane();
+        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = rootPane.getActionMap();
+        inputMap.put(KeyStroke.getKeyStroke("SPACE"), "advance-story");
+        actionMap.put("advance-story", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                if (startOverlay.isVisible() || galleryOverlay.isVisible()) {
+                    return;
+                }
+                advanceStory();
+            }
+        });
     }
 
     private void initScenes() {
@@ -211,7 +442,7 @@ public class Main extends JFrame {
                 밤이 되면 학교는 외부와 단절되고, 학생들은 네 명의 귀신이 학교를 떠돌고 있다고 수군댄다.
                 """,
                 "교장",
-                "월야학원에 와주셔서 감사합니다. 학교를 뒤흔드는 소문을 조용히 정리해 주십시오.",
+                "월야고등학교에 와주셔서 감사합니다. 학교를 뒤흔드는 소문을 조용히 정리해 주십시오.",
                 "bg_school_gate_night.png",
                 "ch_principal.png",
                 List.of(new Choice("교장실로 향한다", "prologue_principal")),
@@ -243,7 +474,7 @@ public class Main extends JFrame {
                 양지영은 조사에 협조하겠다고 하지만, 어딘가 지친 표정을 숨기지 못한다.
                 """,
                 "양지영",
-                "세 건... 아니요, 마지막 한 건까지 합치면 네 건이에요. 다들 사고라고 했지만 아무도 마음속으로는 그렇게 믿지 않았어요.",
+                "세 건... 아니요, 마지막 한 건까지 합치면 네 건이에요. 다들 사고라고 했지만 아무도 그렇게 믿지 않았어요.",
                 "bg_main_hall_night.png",
                 "ch_yang_jiyeong.png",
                 List.of(new Choice("밤 복도를 조사한다", "prologue_hall")),
@@ -262,7 +493,7 @@ public class Main extends JFrame {
                 "환영은 진실 그 자체가 아니다. 누군가의 마지막 감정일 뿐이다.",
                 "bg_main_hall_night.png",
                 "ch_exorcist.png",
-                List.of(new Choice("수영장으로 간다", "pool_intro")),
+                List.of(new Choice("사건 정리로 간다", "case_hub")),
                 null
         ));
 
@@ -270,17 +501,16 @@ public class Main extends JFrame {
                 "수영장 사고",
                 "Chapter 2  수영장 사건",
                 """
-                피해자: 염선혜. 사진 동아리 학생.
+                피해자: 염선혜. 영상 동아리 학생.
                 학생들은 '수영장 CCTV 공백과 문 앞 그림자' 때문에 누군가 선혜를 물에 밀어 넣었다고 믿는다.
                 하지만 현장은 살인과 사고 어느 쪽으로도 읽히는 단서들이 뒤섞여 있다.
                 """,
                 "양지영",
-                "선혜는 수중 촬영 대회를 준비하고 있었어요. 그런데 애가 죽은 밤, 영상에는 사람 그림자가 찍혔어요.",
+                "선혜는 영상 공모전을 준비하고 있었어요. 그런데 애가 죽은 밤, 영상에는 사람 그림자가 찍혔어요.",
                 "bg_pool_night.png",
                 "ch_yang_jiyeong.png",
                 List.of(
-                        new Choice("선혜의 카메라 영상을 본다", "pool_video"),
-                        new Choice("사건 허브로 돌아간다", "case_hub")
+                        new Choice("선혜의 카메라 영상을 본다", "pool_video")
                 ),
                 null
         ));
@@ -291,7 +521,7 @@ public class Main extends JFrame {
                 """
                 영상 마지막 프레임에는 수영장 문 근처를 스쳐 지나가는 그림자가 남아 있다.
                 물은 이상할 정도로 크게 흔들렸고, 바닥 타일에는 미끄러진 듯한 긁힘이 남아 있다.
-                그림자는 살인의 증거처럼 보이지만, 청소 장치가 자동 가동된 기록도 같은 시각에 남아 있다.
+                청소 장치가 자동 가동된 기록도 같은 시각에 남아 있다.
                 """,
                 "플레이어",
                 "그림자만 보면 범인이 있는 것처럼 보이지만, 물의 흔들림은 사람보다 기계에 가깝다.",
@@ -313,7 +543,7 @@ public class Main extends JFrame {
                 공백이 있던 CCTV는 장비 점검으로 자동 저장이 끊겼던 것으로 보인다.
                 """,
                 "플레이어",
-                "누군가를 의심하게 만드는 요소는 많다. 하지만 하나씩 뜯어보면 전부 다른 설명이 가능하다.",
+                "단서는 다 모였다.",
                 "bg_pool_night.png",
                 "ch_exorcist.png",
                 List.of(new Choice("추리한다", "pool_deduction")),
@@ -333,7 +563,7 @@ public class Main extends JFrame {
                 "bg_pool_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("타살로 본다", "pool_wrong", g -> g.suspicionScore++),
+                        new Choice("누군가에 의한 타살로 본다", "pool_wrong", g -> g.suspicionScore++, g -> true, true),
                         new Choice("자동 청소 장치와 미끄러짐에 의한 사고로 본다", "pool_true", g -> {
                             g.poolSolved = true;
                             g.truthScore++;
@@ -352,10 +582,10 @@ public class Main extends JFrame {
                 플레이어는 타살 가설이 강렬하지만 불완전하다는 사실을 깨닫는다.
                 """,
                 "염선혜의 잔류 기억",
-                "물... 사람이 아니라 물이 먼저였어. 난 무언가를 피한 게 아니라, 흔들린 거야.",
+                "마치 물 속으로 빨려들어가는 듯 했어.",
                 "bg_pool_edge.png",
                 "ch_ghost_yeom_seonhye_soft.png",
-                List.of(new Choice("다음 사건으로 간다", "music_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -363,7 +593,6 @@ public class Main extends JFrame {
                 "수영장 사건 결론",
                 "Chapter 2  수영장 사건",
                 """
-                진실:
                 염선혜는 밤 수중 촬영 도중 자동 청소 장치가 가동되며 크게 흔들린 물살에 균형을 잃었다.
                 젖은 타일에서 미끄러져 머리를 부딪힌 뒤 익사했다.
                 그림자는 청소 직원의 순찰이 남긴 우연한 흔적이었다.
@@ -372,7 +601,7 @@ public class Main extends JFrame {
                 "살인이 아니라 사고였다는 사실이 더 허무하게 느껴지죠. 그런데도 다들 더 무서운 이야기를 믿고 싶어 했어요.",
                 "bg_pool_edge.png",
                 "ch_yang_jiyeong.png",
-                List.of(new Choice("음악실 사건으로 간다", "music_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -389,8 +618,7 @@ public class Main extends JFrame {
                 "bg_music_room_night.png",
                 "ch_ghost_han_seungjun.png",
                 List.of(
-                        new Choice("녹음 파일을 분석한다", "music_record"),
-                        new Choice("사건 허브로 돌아간다", "case_hub")
+                        new Choice("녹음 파일을 분석한다", "music_record")
                 ),
                 null
         ));
@@ -404,7 +632,7 @@ public class Main extends JFrame {
                 김현진은 음악실 안에는 들어가지 않았고, 열린 문을 닫았을 뿐이라고 주장한다.
                 """,
                 "한승준의 잔류 기억",
-                "누가 날 해친 게 아니야. 그런데 그 순간엔 누군가가 있다고 믿고 싶었어.",
+                "내 죽음의 이유를 누군가의 탓으로 돌리고 싶었어.",
                 "bg_music_room_close.png",
                 "ch_ghost_han_seungjun_soft.png",
                 List.of(new Choice("추리한다", "music_deduction")),
@@ -420,12 +648,12 @@ public class Main extends JFrame {
                 가장 일관된 설명은 무엇인가.
                 """,
                 "플레이어",
-                "문 밖의 인기척을 범행으로 연결하는 건 쉽다. 하지만 실제 사고는 문보다 발밑에서 시작됐을 수 있다.",
+                "단서는 다 모였다.",
                 "bg_music_room_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("김현진이 음악실에 들어와 해쳤다고 본다", "music_wrong", g -> g.suspicionScore++),
-                        new Choice("전선에 걸려 넘어지며 손이 피아노 안으로 들어간 사고로 본다", "music_true", g -> {
+                        new Choice("김현진이 음악실에 들어와 해쳤다고 본다", "music_wrong", g -> g.suspicionScore++, g -> true, true),
+                        new Choice("건반 위의 손에 피아노 뚜껑이 덮인 사고로 본다", "music_true", g -> {
                             g.musicSolved = true;
                             g.truthScore++;
                             g.unlockClue("한승준 사건 해결");
@@ -446,7 +674,7 @@ public class Main extends JFrame {
                 "사건 근처에 있었다는 사실과 범인이라는 결론 사이에는 생각보다 큰 간격이 있다.",
                 "bg_music_room_night.png",
                 "ch_exorcist.png",
-                List.of(new Choice("과학실 사건으로 간다", "science_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -463,7 +691,7 @@ public class Main extends JFrame {
                 "모든 단서가 누군가를 가리키는 것처럼 보여도, 그게 곧 죄를 뜻하는 건 아니에요.",
                 "bg_music_room_close.png",
                 "ch_yang_jiyeong.png",
-                List.of(new Choice("과학실 사건으로 간다", "science_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -480,8 +708,7 @@ public class Main extends JFrame {
                 "bg_science_lab_night.png",
                 "ch_ghost_kim_junyeong.png",
                 List.of(
-                        new Choice("실험 노트와 용기를 조사한다", "science_lab"),
-                        new Choice("사건 허브로 돌아간다", "case_hub")
+                        new Choice("실험 노트와 용기를 조사한다", "science_lab")
                 ),
                 null
         ));
@@ -515,7 +742,7 @@ public class Main extends JFrame {
                 "bg_science_lab_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("김현진이 약품을 바꿨다고 본다", "science_wrong", g -> g.suspicionScore++),
+                        new Choice("김현진이 약품을 바꿨다고 본다", "science_wrong", g -> g.suspicionScore++, g -> true, true),
                         new Choice("라벨이 지워진 용기를 착각한 실험 사고로 본다", "science_true", g -> {
                             g.scienceSolved = true;
                             g.truthScore++;
@@ -534,10 +761,10 @@ public class Main extends JFrame {
                 공통점이 있다고 해서 공통 범인이 반드시 있는 것은 아니다.
                 """,
                 "김준영의 잔류 기억",
-                "누군가 날 죽였다고 믿으면 조금은 덜 허무할 줄 알았는데... 아니었어.",
+                "조금만 더 주의했더라면...",
                 "bg_science_explosion_mark.png",
                 "ch_ghost_kim_junyeong_soft.png",
-                List.of(new Choice("옥상 사건으로 간다", "rooftop_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -554,7 +781,7 @@ public class Main extends JFrame {
                 "세 사건 모두 사고였다. 그런데 왜 모두가 김현진을 범인이라고 믿게 되었을까.",
                 "bg_science_lab_night.png",
                 "ch_exorcist.png",
-                List.of(new Choice("주다영의 마지막 사건으로 간다", "rooftop_intro")),
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
@@ -572,10 +799,9 @@ public class Main extends JFrame {
                 "ch_exorcist.png",
                 List.of(
                         new Choice("수영장 사건", "pool_intro", g -> {}, g -> !g.poolSolved),
-                        new Choice("음악실 사건", "music_intro", g -> {}, g -> !g.musicSolved),
-                        new Choice("과학실 사건", "science_intro", g -> {}, g -> !g.scienceSolved),
-                        new Choice("옥상 사건", "rooftop_intro"),
-                        new Choice("최종 추리로 넘어간다", "final_board", g -> {}, g -> g.poolSolved && g.musicSolved && g.scienceSolved)
+                        new Choice("음악실 사건", "music_intro", g -> {}, g -> g.poolSolved && !g.musicSolved),
+                        new Choice("과학실 사건", "science_intro", g -> {}, g -> g.poolSolved && g.musicSolved && !g.scienceSolved),
+                        new Choice("옥상 사건", "rooftop_intro", g -> {}, g -> g.poolSolved && g.musicSolved && g.scienceSolved && !g.visitedScenes.contains("rooftop_intro"))
                 ),
                 null
         ));
@@ -594,7 +820,7 @@ public class Main extends JFrame {
                 "ch_yang_jiyeong_serious.png",
                 List.of(
                         new Choice("다영의 노트를 읽는다", "rooftop_note"),
-                        new Choice("최종 추리 보드로 간다", "final_board")
+                        new Choice("최종 추리를 한다", "final_board")
                 ),
                 null
         ));
@@ -614,7 +840,7 @@ public class Main extends JFrame {
                 "내가 틀리면 안 된다고 생각했어. 그래야 이 죽음들이 견딜 만한 이야기가 되니까.",
                 "bg_rooftop_edge.png",
                 "ch_ghost_ju_dayeong.png",
-                List.of(new Choice("최종 추리 보드로 간다", "final_board")),
+                List.of(new Choice("최종 추리를 한다", "final_board")),
                 g -> g.unlockClue("주다영 노트")
         ));
 
@@ -652,7 +878,7 @@ public class Main extends JFrame {
                 "사람들은 우연을 견디지 못해서 이야기를 만들지. 그런데 그 이야기가 또 다른 비극을 만들었네.",
                 "bg_school_dawn.png",
                 "ch_ghost_group_fade.png",
-                List.of(new Choice("처음부터 다시 시작한다", "prologue_arrival", GameState::reset)),
+                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
                 null
         ));
 
@@ -669,7 +895,7 @@ public class Main extends JFrame {
                 "모든 조각이 맞아떨어진다고 믿었다. 하지만 너무 완벽한 이야기는 진실이 아니라 욕망일 수도 있다.",
                 "bg_rooftop_night.png",
                 "",
-                List.of(new Choice("처음부터 다시 시작한다", "prologue_arrival", GameState::reset)),
+                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
                 null
         ));
 
@@ -685,7 +911,7 @@ public class Main extends JFrame {
                 "아무 말도 하지 않는다고 해서 상처가 사라지진 않아요. 다만 누가 무엇을 믿는지만 더 흐려질 뿐이죠.",
                 "bg_main_hall_night.png",
                 "ch_yang_jiyeong_confess.png",
-                List.of(new Choice("처음부터 다시 시작한다", "prologue_arrival", GameState::reset)),
+                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
                 null
         ));
     }
@@ -694,23 +920,158 @@ public class Main extends JFrame {
         state.reset();
     }
 
+    private void showStartScreen() {
+        currentScene = null;
+        currentSceneId = "start_menu";
+        activeBackgroundImage = "bg_school_gate_night.png";
+        activeCharacterImage = "";
+        titleLabel.setText("월야고등학교");
+        chapterLabel.setText("START");
+        nameField.setText(state.playerName == null || state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : state.playerName);
+        storyArea.setText("");
+        speakerBadge.setVisible(false);
+        choiceOverlay.setVisible(false);
+        galleryOverlay.setVisible(false);
+        startOverlay.setVisible(true);
+        hudPanel.setVisible(false);
+        refreshContinueButton();
+        layoutSceneLayers();
+        refreshImages();
+        SwingUtilities.invokeLater(() -> nameField.requestFocusInWindow());
+    }
+
+    private void startGame() {
+        String enteredName = nameField.getText() == null ? "" : nameField.getText().trim();
+        if (enteredName.isEmpty()) {
+            nameField.requestFocusInWindow();
+            return;
+        }
+        state.playerName = enteredName;
+        state.resetForNewRun();
+        startOverlay.setVisible(false);
+        galleryOverlay.setVisible(false);
+        hudPanel.setVisible(true);
+        showScene("prologue_arrival");
+    }
+
+    private void continueGame() {
+        SaveData saveData = SaveData.load(SAVE_PATH);
+        if (saveData == null) {
+            refreshContinueButton();
+            return;
+        }
+        saveData.applyTo(state);
+        textSpeedMs = saveData.textSpeedMs;
+        nameField.setText(state.playerName);
+        startOverlay.setVisible(false);
+        galleryOverlay.setVisible(false);
+        hudPanel.setVisible(true);
+        showScene(saveData.currentSceneId == null || saveData.currentSceneId.isBlank() ? "prologue_arrival" : saveData.currentSceneId);
+    }
+
+    private void clearSaveData() {
+        try {
+            Files.deleteIfExists(SAVE_PATH);
+        } catch (IOException ignored) {
+        }
+        state.reset();
+        showStartScreen();
+    }
+
+    private void refreshContinueButton() {
+        if (continueGameButton != null) {
+            continueGameButton.setEnabled(Files.exists(SAVE_PATH));
+        }
+    }
+
+    private void persistState() {
+        SaveData.from(state, currentSceneId, textSpeedMs).save(SAVE_PATH);
+        refreshContinueButton();
+    }
+
+    private void loadSaveData() {
+        SaveData saveData = SaveData.load(SAVE_PATH);
+        if (saveData == null) {
+            refreshContinueButton();
+            return;
+        }
+        saveData.applyTo(state);
+        textSpeedMs = saveData.textSpeedMs;
+        refreshContinueButton();
+    }
+
+    private void showEndingGallery() {
+        refreshEndingGallery();
+        startOverlay.setVisible(false);
+        galleryOverlay.setVisible(true);
+        hudPanel.setVisible(false);
+        choiceOverlay.setVisible(false);
+        currentScene = null;
+        currentSceneId = "ending_gallery";
+        activeBackgroundImage = "bg_archive_room.png";
+        activeCharacterImage = "";
+        titleLabel.setText("엔딩 모음");
+        chapterLabel.setText("ARCHIVE");
+        layoutSceneLayers();
+        refreshImages();
+    }
+
+    private void refreshEndingGallery() {
+        galleryListPanel.removeAll();
+        for (String endingId : endingTitles.keySet()) {
+            boolean unlocked = state.seenEndings.contains(endingId);
+            JPanel item = new JPanel();
+            item.setLayout(new BoxLayout(item, BoxLayout.Y_AXIS));
+            item.setOpaque(true);
+            item.setBackground(new Color(70, 77, 90));
+            item.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(111, 121, 139), 1),
+                    new EmptyBorder(12, 12, 12, 12)
+            ));
+
+            JLabel name = new JLabel(unlocked ? applyPlayerName(endingTitles.get(endingId)) : "???");
+            name.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
+            name.setForeground(unlocked ? new Color(224, 229, 236) : ACCENT_SOFT);
+
+            JLabel desc = new JLabel(unlocked ? applyPlayerName(endingDescriptions.get(endingId)) : "아직 확인하지 못한 엔딩");
+            desc.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
+            desc.setForeground(new Color(181, 188, 199));
+
+            item.add(name);
+            item.add(Box.createVerticalStrut(4));
+            item.add(desc);
+
+            galleryListPanel.add(item);
+            galleryListPanel.add(Box.createVerticalStrut(10));
+        }
+        galleryListPanel.revalidate();
+        galleryListPanel.repaint();
+    }
+
     private void showScene(String id) {
         Scene scene = scenes.get(id);
         if (scene == null) {
             return;
         }
+        currentSceneId = id;
         currentScene = scene;
+        state.visitedScenes.add(id);
         if (scene.onEnter != null) {
             scene.onEnter.accept(state);
         }
 
-        titleLabel.setText(scene.title);
-        chapterLabel.setText(scene.chapter);
-        narrationArea.setText(scene.narration);
-        narrationArea.setCaretPosition(0);
-        speakerLabel.setText(scene.speaker.isEmpty() ? " " : scene.speaker);
-        startDialogueAnimation(scene.dialogue);
-        statusLabel.setText(buildStatusText());
+        titleLabel.setText(applyPlayerName(scene.title));
+        chapterLabel.setText(applyPlayerName(scene.chapter));
+        activeBackgroundImage = scene.backgroundImage;
+        activeCharacterImage = scene.characterImage;
+        startOverlay.setVisible(false);
+        galleryOverlay.setVisible(false);
+        hudPanel.setVisible(true);
+        if (isEndingSceneId(id)) {
+            state.seenEndings.add(id);
+        }
+        prepareSceneFlow(scene);
+        persistState();
 
         layoutSceneLayers();
         refreshImages();
@@ -719,46 +1080,68 @@ public class Main extends JFrame {
             refreshImages();
             scenePanel.repaint();
         });
-
-        choicesPanel.removeAll();
-        for (Choice choice : scene.choices) {
-            if (!choice.isVisible(state)) {
-                continue;
-            }
-            choicesPanel.add(createChoiceButton(choice));
-        }
-        choicesPanel.revalidate();
-        choicesPanel.repaint();
     }
 
     private JButton createChoiceButton(Choice choice) {
-        JButton button = new JButton(choice.label);
-        button.setHorizontalAlignment(SwingConstants.LEFT);
+        boolean enabled = choice.isVisible(state);
+        boolean completed = isChoiceCompleted(choice);
+        String suffix = enabled ? "" : completed ? " [완료]" : " [잠김]";
+        String label = applyPlayerName(choice.label) + suffix;
+        JButton button = new JButton(asWrappedHtml(label, 24));
+        button.setHorizontalAlignment(SwingConstants.CENTER);
         button.setFocusPainted(false);
-        button.setFont(new Font("Serif", Font.BOLD, 15));
-        button.setBackground(BUTTON);
-        button.setForeground(new Color(236, 240, 246));
-        button.setBorder(choiceBorder(ACCENT_SOFT, new Color(255, 255, 255, 16)));
+        button.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
+        button.setBackground(enabled ? BUTTON : completed ? new Color(76, 83, 96) : new Color(58, 62, 71));
+        button.setForeground(enabled ? new Color(233, 236, 242) : completed ? new Color(206, 214, 226) : new Color(148, 154, 166));
+        button.setBorder(choiceBorder(
+                enabled ? new Color(108, 118, 136) : completed ? new Color(118, 128, 146) : new Color(86, 92, 104),
+                enabled ? new Color(255, 255, 255, 24) : completed ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10)
+        ));
         button.setOpaque(true);
         button.setContentAreaFilled(true);
+        button.setEnabled(enabled);
         button.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
+                if (!button.isEnabled()) {
+                    return;
+                }
                 button.setBackground(BUTTON_HOVER);
-                button.setBorder(choiceBorder(ACCENT, new Color(255, 255, 255, 38)));
+                button.setBorder(choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                button.setBackground(BUTTON);
-                button.setBorder(choiceBorder(ACCENT_SOFT, new Color(255, 255, 255, 16)));
+                button.setBackground(enabled ? BUTTON : completed ? new Color(76, 83, 96) : new Color(58, 62, 71));
+                button.setBorder(choiceBorder(
+                        enabled ? new Color(108, 118, 136) : completed ? new Color(118, 128, 146) : new Color(86, 92, 104),
+                        enabled ? new Color(255, 255, 255, 24) : completed ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10)
+                ));
             }
         });
         button.addActionListener(e -> {
+            if (!button.isEnabled()) {
+                return;
+            }
             choice.effect.accept(state);
+            if (choice.recordsSuspicion) {
+                state.suspectHistory.add(choice.label);
+            }
+            persistState();
             showScene(choice.nextSceneId);
         });
         return button;
+    }
+
+    private boolean isChoiceCompleted(Choice choice) {
+        return switch (choice.nextSceneId) {
+            case "pool_intro" -> state.poolSolved;
+            case "music_intro" -> state.musicSolved;
+            case "science_intro" -> state.scienceSolved;
+            case "rooftop_intro" -> state.visitedScenes.contains("rooftop_intro");
+            case "final_board" -> state.visitedScenes.contains("final_board");
+            default -> false;
+        };
     }
 
     private Border choiceBorder(Color outer, Color inner) {
@@ -767,14 +1150,14 @@ public class Main extends JFrame {
                         BorderFactory.createLineBorder(outer, 1),
                         BorderFactory.createLineBorder(inner, 1)
                 ),
-                new EmptyBorder(11, 14, 11, 14)
+                new EmptyBorder(12, 16, 12, 16)
         );
     }
 
     private String buildStatusText() {
         return "truth=" + state.truthScore
                 + "  suspect=" + state.suspicionScore
-                + "  clues=" + state.cluesFound
+                + "  clues=" + state.clues.size()
                 + "  solved=" + solvedCount() + "/3";
     }
 
@@ -796,16 +1179,21 @@ public class Main extends JFrame {
         if (dialogueTimer != null && dialogueTimer.isRunning()) {
             dialogueTimer.stop();
         }
-        dialogueArea.setText("");
+        storyArea.setText("");
+        pageFullyVisible = false;
         if (fullText == null || fullText.isEmpty()) {
+            pageFullyVisible = true;
+            continueLabel.setText(visibleChoices.size() > 1 ? "CHOICE" : "END");
             return;
         }
         final int[] index = {0};
-        dialogueTimer = new Timer(18, e -> {
+        dialogueTimer = new Timer(textSpeedMs, e -> {
             index[0]++;
-            dialogueArea.setText(fullText.substring(0, index[0]));
-            dialogueArea.setCaretPosition(dialogueArea.getDocument().getLength());
+            storyArea.setText(fullText.substring(0, index[0]));
+            storyArea.setCaretPosition(storyArea.getDocument().getLength());
             if (index[0] >= fullText.length()) {
+                pageFullyVisible = true;
+                continueLabel.setText(nextPromptText());
                 ((Timer) e.getSource()).stop();
             }
         });
@@ -831,24 +1219,29 @@ public class Main extends JFrame {
         int width = Math.max(1, scenePanel.getWidth());
         int height = Math.max(1, scenePanel.getHeight());
         backgroundLabel.setBounds(0, 0, width, height);
-        int characterHeight = Math.max(1, (int) Math.round(height * 0.82));
+        int characterWidth = Math.max(1, (int) Math.round(width * 0.92));
+        int characterHeight = Math.max(1, (int) Math.round(height * 0.92));
+        int characterX = (width - characterWidth) / 2;
         int characterY = Math.max(0, height - characterHeight);
-        characterLabel.setBounds(0, characterY, width, characterHeight);
+        characterLabel.setBounds(characterX, characterY, characterWidth, characterHeight);
         overlayPanel.setBounds(0, 0, width, height);
-        scenePanel.setComponentZOrder(backgroundLabel, 2);
-        scenePanel.setComponentZOrder(characterLabel, 1);
-        scenePanel.setComponentZOrder(overlayPanel, 0);
+        startOverlay.setBounds(0, 0, width, height);
+        galleryOverlay.setBounds(0, 0, width, height);
+        scenePanel.setComponentZOrder(backgroundLabel, 4);
+        scenePanel.setComponentZOrder(characterLabel, 3);
+        scenePanel.setComponentZOrder(overlayPanel, 2);
+        scenePanel.setComponentZOrder(galleryOverlay, 1);
+        scenePanel.setComponentZOrder(startOverlay, 0);
     }
 
     private void refreshImages() {
-        if (currentScene == null) {
-            return;
-        }
         int width = Math.max(1, scenePanel.getWidth());
         int height = Math.max(1, scenePanel.getHeight());
-        setImage(backgroundLabel, currentScene.backgroundImage, width, height, "BG: " + currentScene.backgroundImage, true);
-        setImage(characterLabel, currentScene.characterImage, (int) Math.round(width * 0.74), (int) Math.round(height * 0.78),
-                currentScene.characterImage == null || currentScene.characterImage.isEmpty() ? "" : "CH: " + currentScene.characterImage, false);
+        String backgroundImage = activeBackgroundImage == null ? "" : activeBackgroundImage;
+        String characterImage = activeCharacterImage == null ? "" : activeCharacterImage;
+        setImage(backgroundLabel, backgroundImage, width, height, backgroundImage.isEmpty() ? "" : "BG: " + backgroundImage, true);
+        setImage(characterLabel, characterImage, (int) Math.round(width * 0.92), (int) Math.round(height * 0.92),
+                characterImage.isEmpty() ? "" : "CH: " + characterImage, false);
     }
 
     private void setImage(JLabel label, String fileName, int targetWidth, int targetHeight, String fallbackText, boolean cover) {
@@ -857,9 +1250,8 @@ public class Main extends JFrame {
             label.setText(fallbackText == null ? "" : fallbackText);
             return;
         }
-        String path = "assets/images/" + fileName;
         try {
-            BufferedImage image = ImageIO.read(new File(path));
+            BufferedImage image = loadImageCached(fileName);
             if (image == null) {
                 label.setIcon(null);
                 label.setText(fallbackText);
@@ -881,6 +1273,210 @@ public class Main extends JFrame {
         }
     }
 
+    private BufferedImage loadImageCached(String fileName) throws IOException {
+        BufferedImage cached = imageCache.get(fileName);
+        if (cached != null) {
+            return cached;
+        }
+        String path = "assets/images/" + fileName;
+        BufferedImage image = ImageIO.read(new File(path));
+        if (image != null) {
+            imageCache.put(fileName, image);
+        }
+        return image;
+    }
+
+    private void prepareSceneFlow(Scene scene) {
+        visibleChoices = collectVisibleChoices(scene);
+        scenePages = buildPages(scene);
+        currentPageIndex = 0;
+        choiceOverlay.setVisible(false);
+        choicesPanel.removeAll();
+        if (scenePages.isEmpty()) {
+            storyArea.setText("");
+            pageFullyVisible = true;
+            continueLabel.setText(nextPromptText());
+            handleSceneEnd();
+            return;
+        }
+        showCurrentPage();
+    }
+
+    private List<Choice> collectVisibleChoices(Scene scene) {
+        List<Choice> choices = new ArrayList<>();
+        for (Choice choice : scene.choices) {
+            if (choice.isVisible(state)) {
+                choices.add(choice);
+            }
+        }
+        return choices;
+    }
+
+    private List<PageEntry> buildPages(Scene scene) {
+        List<PageEntry> pages = new ArrayList<>();
+        if (scene.narration != null && !scene.narration.isBlank()) {
+            pages.addAll(splitIntoPages(scene.narration, ""));
+        }
+        if (scene.dialogue != null && !scene.dialogue.isBlank()) {
+            pages.addAll(splitIntoPages(scene.dialogue, scene.speaker));
+        }
+        return pages;
+    }
+
+    private List<PageEntry> splitIntoPages(String text, String speaker) {
+        List<PageEntry> pages = new ArrayList<>();
+        List<String> sentences = new ArrayList<>();
+        Matcher matcher = SENTENCE_PATTERN.matcher(applyPlayerName(text).strip());
+        while (matcher.find()) {
+            String token = matcher.group().trim();
+            if (!token.isEmpty()) {
+                sentences.add(token);
+            }
+        }
+
+        if (sentences.isEmpty()) {
+            return pages;
+        }
+
+        StringBuilder page = new StringBuilder();
+        int sentenceCount = 0;
+        for (String sentence : sentences) {
+            int projectedLength = page.length() + sentence.length() + (page.length() > 0 ? 1 : 0);
+            if (page.length() > 0 && (sentenceCount >= 2 || projectedLength > MAX_PAGE_CHARS)) {
+                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+                page.setLength(0);
+                sentenceCount = 0;
+            }
+            if (page.length() > 0) {
+                page.append(' ');
+            }
+            page.append(sentence);
+            sentenceCount++;
+            if (sentenceCount == 2 && page.length() >= MAX_PAGE_CHARS / 2) {
+                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+                page.setLength(0);
+                sentenceCount = 0;
+            }
+        }
+
+        if (page.length() > 0) {
+            pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+        }
+        return pages;
+    }
+
+    private String applyPlayerName(String text) {
+        String name = state.playerName == null || state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : state.playerName.strip();
+        return text.replace("플레이어", name);
+    }
+
+    private void showCurrentPage() {
+        currentPage = scenePages.get(currentPageIndex);
+        updateSpeakerBadge();
+        continueLabel.setText(pageFullyVisible ? nextPromptText() : "...");
+        startDialogueAnimation(currentPage.text());
+    }
+
+    private void advanceStory() {
+        if (choiceOverlay.isVisible()) {
+            return;
+        }
+        if (dialogueTimer != null && dialogueTimer.isRunning() && !pageFullyVisible) {
+            revealCurrentPageImmediately();
+            return;
+        }
+        if (currentPageIndex + 1 < scenePages.size()) {
+            currentPageIndex++;
+            showCurrentPage();
+            return;
+        }
+        handleSceneEnd();
+    }
+
+    private void revealCurrentPageImmediately() {
+        if (dialogueTimer != null && dialogueTimer.isRunning()) {
+            dialogueTimer.stop();
+        }
+        storyArea.setText(currentPage.text());
+        storyArea.setCaretPosition(storyArea.getDocument().getLength());
+        pageFullyVisible = true;
+        continueLabel.setText(nextPromptText());
+    }
+
+    private void handleSceneEnd() {
+        if (isEndingScene()) {
+            showRestartOverlay();
+            return;
+        }
+        if (currentScene == null || currentScene.choices.isEmpty()) {
+            continueLabel.setText("END");
+            return;
+        }
+        showChoicesOverlay();
+    }
+
+    private void showChoicesOverlay() {
+        choicesPanel.removeAll();
+        for (Choice choice : currentScene.choices) {
+            choicesPanel.add(createChoiceButton(choice));
+        }
+        choicesPanel.revalidate();
+        choicesPanel.repaint();
+        choiceOverlay.setVisible(true);
+        continueLabel.setText("CHOICE");
+    }
+
+    private void showRestartOverlay() {
+        choicesPanel.removeAll();
+        JButton restartButton = createMenuButton("다시 시작", this::showStartScreen);
+        restartButton.setHorizontalAlignment(SwingConstants.CENTER);
+        choicesPanel.add(restartButton);
+        choicesPanel.revalidate();
+        choicesPanel.repaint();
+        choiceOverlay.setVisible(true);
+        continueLabel.setText("RESTART");
+    }
+
+    private void updateSpeakerBadge() {
+        if (currentScene == null) {
+            speakerBadge.setText(" ");
+            speakerBadge.setVisible(false);
+            return;
+        }
+        String speaker = currentPage.speaker();
+        boolean hasSpeaker = speaker != null && !speaker.isBlank();
+        speakerBadge.setText(hasSpeaker ? applyPlayerName(speaker.strip()) : " ");
+        speakerBadge.setVisible(hasSpeaker);
+    }
+
+    private boolean isEndingScene() {
+        return isEndingSceneId(currentSceneId);
+    }
+
+    private boolean isEndingSceneId(String id) {
+        return id != null && id.startsWith("ending_");
+    }
+
+    private String asWrappedHtml(String text, int widthEm) {
+        String safe = text
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("\n", "<br>");
+        return "<html><div style='width:" + widthEm + "em;'>" + safe + "</div></html>";
+    }
+
+    private String nextPromptText() {
+        if (currentPageIndex + 1 < scenePages.size()) {
+            return "NEXT";
+        }
+        if (currentScene != null && !currentScene.choices.isEmpty()) {
+            return "CHOICE";
+        }
+        return "END";
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new Main().setVisible(true));
     }
@@ -891,21 +1487,37 @@ public class Main extends JFrame {
         boolean scienceSolved;
         int truthScore;
         int suspicionScore;
-        int cluesFound;
         String finalChoice = "";
+        String playerName = DEFAULT_PLAYER_NAME;
+        final Set<String> seenEndings = new LinkedHashSet<>();
+        final Set<String> clues = new LinkedHashSet<>();
+        final Set<String> visitedScenes = new LinkedHashSet<>();
+        final List<String> suspectHistory = new ArrayList<>();
+        final Map<String, String> evidenceBoard = new LinkedHashMap<>();
 
         void unlockClue(String clueName) {
-            cluesFound++;
+            if (clues.add(clueName)) {
+                evidenceBoard.put(clueName, "확보");
+            }
         }
 
-        void reset() {
+        void resetForNewRun() {
             poolSolved = false;
             musicSolved = false;
             scienceSolved = false;
             truthScore = 0;
             suspicionScore = 0;
-            cluesFound = 0;
             finalChoice = "";
+            clues.clear();
+            visitedScenes.clear();
+            suspectHistory.clear();
+            evidenceBoard.clear();
+        }
+
+        void reset() {
+            resetForNewRun();
+            playerName = DEFAULT_PLAYER_NAME;
+            seenEndings.clear();
         }
     }
 
@@ -918,10 +1530,19 @@ public class Main extends JFrame {
         final String backgroundImage;
         final String characterImage;
         final List<Choice> choices;
+        final String bgm;
+        final String sfx;
+        final String transition;
         final Consumer<GameState> onEnter;
 
         Scene(String title, String chapter, String narration, String speaker, String dialogue,
               String backgroundImage, String characterImage, List<Choice> choices, Consumer<GameState> onEnter) {
+            this(title, chapter, narration, speaker, dialogue, backgroundImage, characterImage, choices, "ambient_night", "", "fade", onEnter);
+        }
+
+        Scene(String title, String chapter, String narration, String speaker, String dialogue,
+              String backgroundImage, String characterImage, List<Choice> choices,
+              String bgm, String sfx, String transition, Consumer<GameState> onEnter) {
             this.title = title;
             this.chapter = chapter;
             this.narration = narration;
@@ -930,6 +1551,9 @@ public class Main extends JFrame {
             this.backgroundImage = backgroundImage;
             this.characterImage = characterImage;
             this.choices = choices;
+            this.bgm = bgm;
+            this.sfx = sfx;
+            this.transition = transition;
             this.onEnter = onEnter;
         }
     }
@@ -939,24 +1563,202 @@ public class Main extends JFrame {
         final String nextSceneId;
         final Consumer<GameState> effect;
         final Predicate<GameState> visibility;
+        final boolean recordsSuspicion;
 
         Choice(String label, String nextSceneId) {
-            this(label, nextSceneId, g -> {}, g -> true);
+            this(label, nextSceneId, g -> {}, g -> true, false);
         }
 
         Choice(String label, String nextSceneId, Consumer<GameState> effect) {
-            this(label, nextSceneId, effect, g -> true);
+            this(label, nextSceneId, effect, g -> true, false);
         }
 
         Choice(String label, String nextSceneId, Consumer<GameState> effect, Predicate<GameState> visibility) {
+            this(label, nextSceneId, effect, visibility, false);
+        }
+
+        Choice(String label, String nextSceneId, Consumer<GameState> effect, Predicate<GameState> visibility, boolean recordsSuspicion) {
             this.label = label;
             this.nextSceneId = nextSceneId;
             this.effect = effect;
             this.visibility = visibility;
+            this.recordsSuspicion = recordsSuspicion;
         }
 
         boolean isVisible(GameState state) {
             return visibility.test(state);
+        }
+    }
+
+    private record PageEntry(String text, String speaker) {
+        private static PageEntry empty() {
+            return new PageEntry("", "");
+        }
+    }
+
+    private static class SaveData {
+        String playerName = DEFAULT_PLAYER_NAME;
+        String currentSceneId = "prologue_arrival";
+        int textSpeedMs = 18;
+        boolean poolSolved;
+        boolean musicSolved;
+        boolean scienceSolved;
+        int truthScore;
+        int suspicionScore;
+        String finalChoice = "";
+        final Set<String> seenEndings = new LinkedHashSet<>();
+        final Set<String> clues = new LinkedHashSet<>();
+        final Set<String> visitedScenes = new LinkedHashSet<>();
+        final List<String> suspectHistory = new ArrayList<>();
+        final Map<String, String> evidenceBoard = new LinkedHashMap<>();
+
+        static SaveData from(GameState state, String currentSceneId, int textSpeedMs) {
+            SaveData data = new SaveData();
+            data.playerName = state.playerName;
+            data.currentSceneId = currentSceneId;
+            data.textSpeedMs = textSpeedMs;
+            data.poolSolved = state.poolSolved;
+            data.musicSolved = state.musicSolved;
+            data.scienceSolved = state.scienceSolved;
+            data.truthScore = state.truthScore;
+            data.suspicionScore = state.suspicionScore;
+            data.finalChoice = state.finalChoice;
+            data.seenEndings.addAll(state.seenEndings);
+            data.clues.addAll(state.clues);
+            data.visitedScenes.addAll(state.visitedScenes);
+            data.suspectHistory.addAll(state.suspectHistory);
+            data.evidenceBoard.putAll(state.evidenceBoard);
+            return data;
+        }
+
+        void applyTo(GameState state) {
+            state.resetForNewRun();
+            state.playerName = playerName == null ? DEFAULT_PLAYER_NAME : playerName;
+            state.poolSolved = poolSolved;
+            state.musicSolved = musicSolved;
+            state.scienceSolved = scienceSolved;
+            state.truthScore = truthScore;
+            state.suspicionScore = suspicionScore;
+            state.finalChoice = finalChoice == null ? "" : finalChoice;
+            state.seenEndings.addAll(seenEndings);
+            state.clues.addAll(clues);
+            state.visitedScenes.addAll(visitedScenes);
+            state.suspectHistory.addAll(suspectHistory);
+            state.evidenceBoard.putAll(evidenceBoard);
+        }
+
+        void save(Path path) {
+            try {
+                Files.createDirectories(path.getParent());
+                Properties properties = new Properties();
+                properties.setProperty("playerName", playerName == null ? "" : playerName);
+                properties.setProperty("currentSceneId", currentSceneId == null ? "prologue_arrival" : currentSceneId);
+                properties.setProperty("textSpeedMs", Integer.toString(textSpeedMs));
+                properties.setProperty("poolSolved", Boolean.toString(poolSolved));
+                properties.setProperty("musicSolved", Boolean.toString(musicSolved));
+                properties.setProperty("scienceSolved", Boolean.toString(scienceSolved));
+                properties.setProperty("truthScore", Integer.toString(truthScore));
+                properties.setProperty("suspicionScore", Integer.toString(suspicionScore));
+                properties.setProperty("finalChoice", finalChoice == null ? "" : finalChoice);
+                properties.setProperty("seenEndings", String.join("|", seenEndings));
+                properties.setProperty("clues", String.join("|", clues));
+                properties.setProperty("visitedScenes", String.join("|", visitedScenes));
+                properties.setProperty("suspectHistory", String.join("|", suspectHistory));
+                for (Map.Entry<String, String> entry : evidenceBoard.entrySet()) {
+                    properties.setProperty("evidence." + entry.getKey(), entry.getValue());
+                }
+                try (var writer = Files.newBufferedWriter(path)) {
+                    properties.store(writer, "choice save data");
+                }
+            } catch (IOException ignored) {
+            }
+        }
+
+        static SaveData load(Path path) {
+            if (!Files.exists(path)) {
+                return null;
+            }
+            Properties properties = new Properties();
+            try (var reader = Files.newBufferedReader(path)) {
+                properties.load(reader);
+            } catch (IOException ex) {
+                return null;
+            }
+
+            SaveData data = new SaveData();
+            data.playerName = properties.getProperty("playerName", DEFAULT_PLAYER_NAME);
+            data.currentSceneId = properties.getProperty("currentSceneId", "prologue_arrival");
+            data.textSpeedMs = Integer.parseInt(properties.getProperty("textSpeedMs", "18"));
+            data.poolSolved = Boolean.parseBoolean(properties.getProperty("poolSolved", "false"));
+            data.musicSolved = Boolean.parseBoolean(properties.getProperty("musicSolved", "false"));
+            data.scienceSolved = Boolean.parseBoolean(properties.getProperty("scienceSolved", "false"));
+            data.truthScore = Integer.parseInt(properties.getProperty("truthScore", "0"));
+            data.suspicionScore = Integer.parseInt(properties.getProperty("suspicionScore", "0"));
+            data.finalChoice = properties.getProperty("finalChoice", "");
+            addAll(properties.getProperty("seenEndings", ""), data.seenEndings);
+            addAll(properties.getProperty("clues", ""), data.clues);
+            addAll(properties.getProperty("visitedScenes", ""), data.visitedScenes);
+            addAll(properties.getProperty("suspectHistory", ""), data.suspectHistory);
+            for (String key : properties.stringPropertyNames()) {
+                if (key.startsWith("evidence.")) {
+                    data.evidenceBoard.put(key.substring("evidence.".length()), properties.getProperty(key, ""));
+                }
+            }
+            return data;
+        }
+
+        private static void addAll(String encoded, Set<String> target) {
+            if (encoded == null || encoded.isBlank()) {
+                return;
+            }
+            for (String value : encoded.split("\\|")) {
+                if (!value.isBlank()) {
+                    target.add(value);
+                }
+            }
+        }
+
+        private static void addAll(String encoded, List<String> target) {
+            if (encoded == null || encoded.isBlank()) {
+                return;
+            }
+            for (String value : encoded.split("\\|")) {
+                if (!value.isBlank()) {
+                    target.add(value);
+                }
+            }
+        }
+    }
+
+    private static class LengthFilter extends DocumentFilter {
+        private final int maxLength;
+
+        LengthFilter(int maxLength) {
+            this.maxLength = maxLength;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+            if (string == null) {
+                return;
+            }
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+            String incoming = text == null ? "" : text;
+            int currentLength = fb.getDocument().getLength();
+            int newLength = currentLength - length + incoming.length();
+            if (newLength <= maxLength) {
+                super.replace(fb, offset, length, incoming, attrs);
+                return;
+            }
+
+            int allowed = maxLength - (currentLength - length);
+            if (allowed > 0) {
+                super.replace(fb, offset, length, incoming.substring(0, allowed), attrs);
+            }
         }
     }
 }

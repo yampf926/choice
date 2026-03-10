@@ -1,31 +1,11 @@
-### IntelliJ IDEA ###
-.idea
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-.kotlin
-
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
-.vscode/
-
-### Mac OS ###
-.DS_Store
+# 디폴트 무시된 파일
+.idea/
+/shelf/
+/.idea/workspace.xml
+# 쿼리 파일을 포함한 무시된 디폴트 폴더
+/queries/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# 에디터 기반 HTTP 클라이언트 요청
+/httpRequests/
