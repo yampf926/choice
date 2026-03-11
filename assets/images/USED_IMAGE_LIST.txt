@@ -1,0 +1,29 @@
+Used character images
+ch_gyojang.png
+ch_han_seungjun.png
+ch_ju_dayeong.png
+ch_kim_junyeong.png
+ch_player.png
+ch_yang_jiyeong.png
+ch_yang_jiyeong_confess.png
+ch_yang_jiyeong_soft.png
+
+Used background images
+bg_archive_room.png
+bg_chapel_night.png
+bg_main_hall_night.png
+bg_music_room_close.png
+bg_music_room_night.png
+bg_pool_edge.png
+bg_pool_night.png
+bg_rooftop_edge.png
+bg_rooftop_night.png
+bg_school_dawn.png
+bg_school_gate_night.png
+bg_science_explosion_mark.png
+bg_science_lab_night.png
+
+Copied aliases for replacement workflow
+ch_gyojang.png -> copy of ch_principal.png
+ch_player.png -> copy of ch_exorcist.png
+ch_han_seungjun.png -> copy of ch_ghost_han_seungjun.png
