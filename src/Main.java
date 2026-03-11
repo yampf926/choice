@@ -407,13 +407,13 @@ public class Main extends JFrame {
     }
 
     private void initEndingMetadata() {
-        endingTitles.put("ending_true", "진실 루트");
-        endingTitles.put("ending_wrong_accusation", "오판 루트");
-        endingTitles.put("ending_silence", "침묵 루트");
+        endingTitles.put("ending_true", "기록된 진실");
+        endingTitles.put("ending_wrong_accusation", "희생양");
+        endingTitles.put("ending_silence", "미완의 보고서");
 
-        endingDescriptions.put("ending_true", "무죄를 증명하고 사건을 사고로 바로잡은 결말");
-        endingDescriptions.put("ending_wrong_accusation", "누군가를 범인으로 단정해 비극을 남긴 결말");
-        endingDescriptions.put("ending_silence", "결론을 보류한 채 기록만 남긴 결말");
+        endingDescriptions.put("ending_true", "무리한 촬영과 안전 부재가 만든 연속 사고를 밝혀낸 결말");
+        endingDescriptions.put("ending_wrong_accusation", "김현진에게 죄를 뒤집어씌우고 구조적 원인을 놓친 결말");
+        endingDescriptions.put("ending_silence", "진실 직전에서 멈춰 프로젝트의 책임만 흐려진 결말");
     }
 
     private void installKeyBindings() {
@@ -437,60 +437,60 @@ public class Main extends JFrame {
                 "월야고등학교 정문",
                 "Chapter 1  프롤로그",
                 """
-                산속 깊은 곳의 사립 기숙학교, 월야고등학교.
-                학생 사망 사고가 몇 년 사이 연달아 발생했지만 학교는 모두 사고로 발표했다.
-                밤이 되면 학교는 외부와 단절되고, 학생들은 네 명의 귀신이 학교를 떠돌고 있다고 수군댄다.
+                월야고등학교에서는 전국 청소년 UCC 공모전을 위해 프로젝트 팀이 꾸려졌다.
+                지도교사 양지영 아래에서 학생들은 기획, 촬영, 음악, 장치 제작, 수중 촬영 역할을 나눠 맡았다.
+                그러나 촬영 기간 동안 음악실, 과학실, 수영장에서 연달아 세 번의 사고가 발생했고, 학교는 모두 사고로 처리했다.
                 """,
                 "교장",
-                "월야고등학교에 와주셔서 감사합니다. 학교를 뒤흔드는 소문을 조용히 정리해 주십시오.",
+                "공모전 준비 팀에서만 세 건의 사망 사고가 났습니다. 공식 기록은 사고지만, 학생들은 누군가 팀을 노렸다고 믿고 있어요.",
                 "bg_school_gate_night.png",
                 "ch_principal.png",
-                List.of(new Choice("교장실로 향한다", "prologue_principal")),
+                List.of(new Choice("프로젝트 기록을 확인한다", "prologue_principal")),
                 null
         ));
 
         scenes.put("prologue_principal", new Scene(
-                "교장실 보고",
+                "프로젝트 개요",
                 "Chapter 1  프롤로그",
                 """
-                교장은 사건이 외부에 알려지는 것을 무엇보다 두려워한다.
-                공식 발표는 모두 사고였지만, 학생들 사이에서는 '살인 사건이 귀신이 되어 돌아왔다'는 공포가 퍼지고 있다.
-                플레이어는 학교의 평판이 아니라 진실을 확인하기 위해 조사를 시작한다.
+                팀의 주제는 '청소년의 도전과 성장'이었다.
+                양지영은 전체 연출을, 방송부 김태형은 촬영과 장비를, 학생회 김현진은 일정과 운영을 맡았다.
+                음악부 주다영, 과학부 한승준, 수영부 김준영, 체육부 장훈은 각자의 장면을 준비하며 촬영을 이어 갔다.
                 """,
                 "플레이어",
-                "공식 기록이 사고라면, 왜 학생들은 살인이라고 믿게 되었을까.",
+                "사건은 서로 다른 장소에서 일어났지만, 출발점은 같은 프로젝트 안에 있다.",
                 "bg_archive_room.png",
                 "ch_exorcist.png",
-                List.of(new Choice("보건교사 양지영을 만난다", "prologue_nurse")),
+                List.of(new Choice("양지영에게 당시 상황을 듣는다", "prologue_nurse")),
                 null
         ));
 
         scenes.put("prologue_nurse", new Scene(
-                "보건실",
+                "양지영의 증언",
                 "Chapter 1  프롤로그",
                 """
-                보건교사 양지영은 네 사건의 피해자들이 모두 억울함을 남긴 채 죽었다고 말한다.
-                특히 마지막 피해자인 주다영은 앞선 사건들을 조사하며 김현진이 범인이라고 확신하고 있었다.
-                양지영은 조사에 협조하겠다고 하지만, 어딘가 지친 표정을 숨기지 못한다.
+                양지영은 촬영이 갈수록 무리해졌다고 말한다.
+                공모전 마감이 다가오자 재촬영과 테스트가 겹쳤고, 학생들은 안전 확인보다 결과를 먼저 챙기기 시작했다.
+                그 와중에 일정 관리 담당이던 김현진은 여러 차례 촬영 중단을 말했지만, 사건 뒤에는 오히려 가장 많이 의심받는 인물이 되었다.
                 """,
                 "양지영",
-                "세 건... 아니요, 마지막 한 건까지 합치면 네 건이에요. 다들 사고라고 했지만 아무도 그렇게 믿지 않았어요.",
+                "현진이는 막으려고 했어요. 그런데 끝내 막지 못했고, 그 죄책감 때문에 더 말을 못 하게 됐죠.",
                 "bg_main_hall_night.png",
                 "ch_yang_jiyeong.png",
-                List.of(new Choice("밤 복도를 조사한다", "prologue_hall")),
+                List.of(new Choice("프로젝트 사고 기록을 조사한다", "prologue_hall")),
                 null
         ));
 
         scenes.put("prologue_hall", new Scene(
-                "밤 복도",
+                "사고 기록 복도",
                 "Chapter 1  프롤로그",
                 """
-                복도 전등이 몇 번 깜빡인다.
-                잔류 기억이 스치듯 지나가고, 플레이어의 시야 끝에 수영장 쪽으로 젖은 발자국이 이어진다.
-                학교의 첫 공포는 명백한 위협보다, 누군가가 남긴 단편적인 오해에서 시작되고 있었다.
+                학교가 정리한 자료에는 세 사고가 따로 적혀 있다.
+                하지만 장소만 다를 뿐 모두 촬영 준비 중이었고, 김현진과 장비 기록, 일정표가 늘 근처에 남아 있다.
+                공통점은 너무 선명해서 누군가를 범인으로 상상하기 쉽게 만든다.
                 """,
                 "플레이어",
-                "환영은 진실 그 자체가 아니다. 누군가의 마지막 감정일 뿐이다.",
+                "같은 팀, 같은 마감, 같은 조급함. 연결점이 많다는 사실이 곧 살인의 증거는 아니다.",
                 "bg_main_hall_night.png",
                 "ch_exorcist.png",
                 List.of(new Choice("사건 정리로 간다", "case_hub")),
@@ -499,75 +499,91 @@ public class Main extends JFrame {
 
         scenes.put("pool_intro", new Scene(
                 "수영장 사고",
-                "Chapter 2  수영장 사건",
+                "Chapter 4  세 번째 사고",
                 """
-                피해자: 염선혜. 영상 동아리 학생.
-                학생들은 '수영장 CCTV 공백과 문 앞 그림자' 때문에 누군가 선혜를 물에 밀어 넣었다고 믿는다.
-                하지만 현장은 살인과 사고 어느 쪽으로도 읽히는 단서들이 뒤섞여 있다.
+                세 번째 사고의 피해자는 수영부 김준영이다.
+                UCC의 도전 장면을 위해 수중 촬영을 준비하던 중, 준영은 익사 사고를 당했다.
+                수영부 학생이 물에서 죽었다는 사실과 일부 촬영 영상의 공백 때문에 학생들은 마침내 누군가 팀을 노리고 있다고 확신하기 시작한다.
                 """,
                 "양지영",
-                "선혜는 영상 공모전을 준비하고 있었어요. 그런데 애가 죽은 밤, 영상에는 사람 그림자가 찍혔어요.",
+                "준영이는 체력이 좋았어요. 그래서 다들 더더욱 사고라는 말을 못 믿었죠.",
                 "bg_pool_night.png",
                 "ch_yang_jiyeong.png",
                 List.of(
-                        new Choice("선혜의 카메라 영상을 본다", "pool_video")
+                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video")
                 ),
                 null
         ));
 
         scenes.put("pool_video", new Scene(
-                "카메라 영상",
-                "Chapter 2  수영장 사건",
+                "수중 촬영 영상",
+                "Chapter 4  세 번째 사고",
                 """
-                영상 마지막 프레임에는 수영장 문 근처를 스쳐 지나가는 그림자가 남아 있다.
-                물은 이상할 정도로 크게 흔들렸고, 바닥 타일에는 미끄러진 듯한 긁힘이 남아 있다.
-                청소 장치가 자동 가동된 기록도 같은 시각에 남아 있다.
+                영상에는 수면이 갑자기 크게 흔들리는 장면과 구조가 늦어진 몇 초의 공백이 남아 있다.
+                촬영 장비 위치가 예상보다 깊은 쪽으로 옮겨져 있었고, 보조 인력 배치표는 마지막 순간 손으로 덧고쳐져 있다.
+                학생들은 김현진이 그날 일정과 배치를 다시 정리했다는 사실을 들어 의심을 키운다.
                 """,
                 "플레이어",
-                "그림자만 보면 범인이 있는 것처럼 보이지만, 물의 흔들림은 사람보다 기계에 가깝다.",
+                "배치표를 수정한 사람과 사고를 만든 사람이 같다는 뜻은 아니다. 하지만 오해는 늘 그런 식으로 자란다.",
                 "bg_pool_edge.png",
-                "ch_ghost_yeom_seonhye.png",
+                "ch_exorcist.png",
                 List.of(
-                        new Choice("학생 증언을 듣는다", "pool_interview"),
-                        new Choice("추리한다", "pool_deduction")
+                        new Choice("장훈과 당시 현장 지원 기록을 확인한다", "pool_interview"),
+                        new Choice("단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
                 ),
                 g -> g.unlockClue("수영장 영상")
         ));
 
         scenes.put("pool_interview", new Scene(
-                "학생 인터뷰",
-                "Chapter 2  수영장 사건",
+                "현장 지원 기록",
+                "Chapter 4  세 번째 사고",
                 """
-                학생들은 선혜가 혼자 촬영 장비를 들고 수영장으로 내려갔다고 증언한다.
-                누군가 따라갔다는 말도 있지만, 정작 그 그림자는 청소 직원이 순찰하던 시간대와 겹친다.
-                공백이 있던 CCTV는 장비 점검으로 자동 저장이 끊겼던 것으로 보인다.
+                장훈의 진술과 현장 지원표에는 원래 두 명이 있어야 할 안전 보조가 한 명으로 줄어 있었던 정황이 남아 있다.
+                김현진은 인원 부족 때문에 촬영을 미루자고 했지만, 이미 대관 시간과 공모전 마감이 겹쳐 팀은 촬영을 강행했다.
+                공백처럼 보였던 영상 일부는 물에 젖은 장비를 급히 정리하는 과정에서 끊긴 것이었다.
                 """,
                 "플레이어",
-                "단서는 다 모였다.",
+                "세 번째 사고에서조차 보이는 건 살인의 흔적보다 무너진 통제다.",
                 "bg_pool_night.png",
                 "ch_exorcist.png",
-                List.of(new Choice("추리한다", "pool_deduction")),
-                g -> g.unlockClue("청소 장치 기록")
+                List.of(new Choice("단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)),
+                g -> g.unlockClue("현장 지원 기록")
+        ));
+
+        scenes.put("pool_review", new Scene(
+                "수영장 단서 정리",
+                "Chapter 4  세 번째 사고",
+                """
+                수영 실력이 좋았던 준영의 죽음은 그래서 더 누군가의 의도처럼 보인다.
+                하지만 영상 공백, 수정된 배치표, 줄어든 안전 보조 인원은 모두 촬영을 멈추지 못한 팀의 조급함과 연결된다.
+                세 번째 사고는 의심을 완성한 사건이지만, 동시에 세 사고의 공통 원인도 가장 분명하게 드러낸다.
+                """,
+                "플레이어",
+                "이제는 사람 하나의 악의보다 프로젝트 전체의 무리함을 설명할 수 있어야 한다.",
+                "bg_pool_night.png",
+                "ch_exorcist.png",
+                List.of(new Choice("결론을 내린다", "pool_deduction")),
+                null
         ));
 
         scenes.put("pool_deduction", new Scene(
                 "수영장 추리",
-                "Chapter 2  수영장 사건",
+                "Chapter 4  세 번째 사고",
                 """
                 단서 조합:
-                그림자 / CCTV 공백 / 타일 긁힘 / 물살 기록
-                어떤 결론이 가장 논리적인가.
+                수중 촬영 영상 / 수정된 배치표 / 안전 보조 공백 / 장훈의 진술
+                무엇이 가장 일관된 설명인가.
                 """,
                 "플레이어",
-                "패턴을 만들기는 쉽다. 하지만 지금 필요한 건 가장 극적인 설명이 아니라 가장 단순한 설명이다.",
+                "세 번째 사고의 결론이 곧 세 사건 전체의 방향을 정한다.",
                 "bg_pool_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("누군가에 의한 타살로 본다", "pool_wrong", g -> g.suspicionScore++, g -> true, true),
-                        new Choice("자동 청소 장치와 미끄러짐에 의한 사고로 본다", "pool_true", g -> {
+                        new Choice("김현진이 배치를 바꿔 김준영을 위험하게 만들었다고 본다", "pool_wrong", g -> g.suspicionScore++, g -> true, true),
+                        new Choice("무리한 수중 촬영과 부족한 안전 인력 속에서 벌어진 익사 사고로 본다", "pool_true", g -> {
                             g.poolSolved = true;
                             g.truthScore++;
-                            g.unlockClue("염선혜 사건 해결");
+                            g.unlockClue("김준영 사건 해결");
                         })
                 ),
                 null
@@ -575,30 +591,30 @@ public class Main extends JFrame {
 
         scenes.put("pool_wrong", new Scene(
                 "수영장 오판",
-                "Chapter 2  수영장 사건",
+                "Chapter 4  세 번째 사고",
                 """
-                그림자와 CCTV 공백은 살인을 떠올리게 한다.
-                그러나 긁힌 타일의 방향과 물살 기록은 누군가 밀었다기보다 급하게 균형을 잃은 장면에 가깝다.
-                플레이어는 타살 가설이 강렬하지만 불완전하다는 사실을 깨닫는다.
+                배치표를 고친 사람이 김현진이라는 사실은 마지막 의심을 완성한다.
+                하지만 기록 전체는 그 수정이 사고를 만들기 위한 조작이 아니라, 이미 부족해진 인원을 어떻게든 맞추려던 임시 대응이었음을 보여 준다.
+                범인을 세우는 데 성공해도 프로젝트의 구조적 실패는 여전히 설명되지 않는다.
                 """,
-                "염선혜의 잔류 기억",
-                "마치 물 속으로 빨려들어가는 듯 했어.",
+                "플레이어",
+                "누군가를 찍어내는 순간, 모두가 조금씩 밀어 넣은 위험은 이름을 잃는다.",
                 "bg_pool_edge.png",
-                "ch_ghost_yeom_seonhye_soft.png",
+                "ch_exorcist.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
         scenes.put("pool_true", new Scene(
                 "수영장 사건 결론",
-                "Chapter 2  수영장 사건",
+                "Chapter 4  세 번째 사고",
                 """
-                염선혜는 밤 수중 촬영 도중 자동 청소 장치가 가동되며 크게 흔들린 물살에 균형을 잃었다.
-                젖은 타일에서 미끄러져 머리를 부딪힌 뒤 익사했다.
-                그림자는 청소 직원의 순찰이 남긴 우연한 흔적이었다.
+                김준영의 익사는 개인의 실수 하나로 생긴 사고가 아니었다.
+                일정에 쫓겨 안전 보조 인원이 줄고, 촬영 구도만 맞춘 채 수중 테스트를 강행한 결과였다.
+                수영을 잘하는 학생이라도 무리한 촬영 구조와 늦은 대응 앞에서는 예외가 될 수 없었다.
                 """,
                 "양지영",
-                "살인이 아니라 사고였다는 사실이 더 허무하게 느껴지죠. 그런데도 다들 더 무서운 이야기를 믿고 싶어 했어요.",
+                "이제 세 사건이 왜 닮았는지 설명할 수 있겠네요. 누군가가 죽이고 다녀서가 아니라, 같은 방식으로 위험을 밀어붙였기 때문이에요.",
                 "bg_pool_edge.png",
                 "ch_yang_jiyeong.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
@@ -607,56 +623,72 @@ public class Main extends JFrame {
 
         scenes.put("music_intro", new Scene(
                 "음악실 사고",
-                "Chapter 3  음악실 사건",
+                "Chapter 2  첫 번째 사고",
                 """
-                피해자: 한승준. 피아노 콩쿠르 준비생.
-                녹음 파일에는 발걸음 소리와 문 여닫는 소리, 그리고 피아노 뚜껑이 세게 닫히는 충격음이 남아 있다.
-                학생들은 그 소리가 누군가의 침입과 공격이라고 믿는다.
+                첫 사고의 피해자는 음악부 소속 주다영이다.
+                UCC 영상의 배경 음악과 연주 장면을 준비하던 밤, 피아노 덮개가 강하게 닫히며 손가락이 끼는 사고가 일어났다.
+                균형을 잃고 넘어진 주다영은 머리를 부딪혀 사망했고, 복도에서 들린 발걸음 소리 때문에 누군가 밀었다는 소문이 퍼졌다.
                 """,
-                "플레이어",
-                "소리는 언제나 상상력을 자극한다. 보이지 않는 인물을 만들어내기 가장 쉬운 단서다.",
+                "양지영",
+                "다영이는 곡을 다시 녹음하겠다고 혼자 남았어요. 그 뒤로는 피아노 소리랑 비명만 남았죠.",
                 "bg_music_room_night.png",
-                "ch_ghost_han_seungjun.png",
+                "ch_yang_jiyeong.png",
                 List.of(
-                        new Choice("녹음 파일을 분석한다", "music_record")
+                        new Choice("녹음 파일과 현장 기록을 본다", "music_record")
                 ),
                 null
         ));
 
         scenes.put("music_record", new Scene(
-                "녹음 파일",
-                "Chapter 3  음악실 사건",
+                "녹음 파일과 체크리스트",
+                "Chapter 2  첫 번째 사고",
                 """
-                파일에는 연주, 발걸음, 문 닫힘 소리, 급한 숨, 금속 스탠드가 긁히는 잡음이 순서대로 남아 있다.
-                한승준의 친구는 그날 김현진이 복도를 지나갔다고 말한다.
-                김현진은 음악실 안에는 들어가지 않았고, 열린 문을 닫았을 뿐이라고 주장한다.
+                파일에는 연주, 급하게 일어나는 의자 소리, 문 닫힘, 피아노 덮개 충격음이 차례로 남아 있다.
+                김현진은 그 시간 음악실 복도에서 다음 날 촬영 순서를 정리하고 있었고, 열린 문을 닫았다고 진술했다.
+                촬영 체크리스트에는 '야간 단독 연습 금지'가 적혀 있었지만 실제로는 지켜지지 않았다.
                 """,
-                "한승준의 잔류 기억",
-                "내 죽음의 이유를 누군가의 탓으로 돌리고 싶었어.",
+                "플레이어",
+                "발걸음과 문 닫힘은 수상하다. 하지만 그보다 먼저 봐야 할 건 주의사항이 왜 무시됐는지다.",
                 "bg_music_room_close.png",
-                "ch_ghost_han_seungjun_soft.png",
-                List.of(new Choice("추리한다", "music_deduction")),
+                "ch_exorcist.png",
+                List.of(new Choice("단서를 정리한다", "music_review")),
                 g -> g.unlockClue("음악실 녹음")
+        ));
+
+        scenes.put("music_review", new Scene(
+                "음악실 단서 정리",
+                "Chapter 2  첫 번째 사고",
+                """
+                발걸음 소리 하나만 떼어 놓으면 누군가 침입한 장면처럼 읽힌다.
+                하지만 녹음의 순서와 체크리스트를 함께 보면, 촬영을 서두르다 안전 수칙이 무너진 상태에서 사고가 먼저 일어났고 김현진은 그 직후 현장 근처에 있었던 쪽에 가깝다.
+                첫 사고는 누가 다영을 노렸는지보다, 왜 다영이 혼자 위험한 연습을 하게 되었는지를 묻는다.
+                """,
+                "플레이어",
+                "가까이 있었다는 이유만으로 원인을 사람에게 돌리면, 구조는 금방 가려진다.",
+                "bg_music_room_night.png",
+                "ch_exorcist.png",
+                List.of(new Choice("결론을 내린다", "music_deduction")),
+                null
         ));
 
         scenes.put("music_deduction", new Scene(
                 "음악실 추리",
-                "Chapter 3  음악실 사건",
+                "Chapter 2  첫 번째 사고",
                 """
                 단서 조합:
-                발걸음 소리 / 문 닫힘 / 마이크 감도 / 스탠드 전선 / 뚜껑 충격
-                가장 일관된 설명은 무엇인가.
+                연습 녹음 / 문 닫힘 / 복도 발걸음 / 야간 단독 연습 금지 체크리스트
+                무엇이 가장 일관된 설명인가.
                 """,
                 "플레이어",
-                "단서는 다 모였다.",
+                "수상한 동선보다 먼저 봐야 할 건, 사고가 날 수밖에 없던 준비 과정이다.",
                 "bg_music_room_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("김현진이 음악실에 들어와 해쳤다고 본다", "music_wrong", g -> g.suspicionScore++, g -> true, true),
-                        new Choice("건반 위의 손에 피아노 뚜껑이 덮인 사고로 본다", "music_true", g -> {
+                        new Choice("김현진이 음악실에 들어와 다영을 해쳤다고 본다", "music_wrong", g -> g.suspicionScore++, g -> true, true),
+                        new Choice("무리한 야간 연습과 피아노 덮개 사고가 겹친 사고로 본다", "music_true", g -> {
                             g.musicSolved = true;
                             g.truthScore++;
-                            g.unlockClue("한승준 사건 해결");
+                            g.unlockClue("주다영 사건 해결");
                         })
                 ),
                 null
@@ -664,14 +696,14 @@ public class Main extends JFrame {
 
         scenes.put("music_wrong", new Scene(
                 "음악실 오판",
-                "Chapter 3  음악실 사건",
+                "Chapter 2  첫 번째 사고",
                 """
-                발걸음과 문 닫힘 소리는 누군가 개입했다는 확신을 준다.
-                그러나 마이크 감도는 복도 소리를 과장했고, 전선 위치는 승준이 먼저 균형을 잃었음을 가리킨다.
-                김현진은 의심받을 만한 위치에 있었지만 범행을 저질렀다는 증거는 아니다.
+                김현진이 복도에 있었다는 사실은 강한 의심을 만든다.
+                그러나 녹음의 순서와 체크리스트는 사고 뒤 현장에 가까이 갔을 가능성만 보여 줄 뿐, 다영을 해쳤다는 증거는 되지 못한다.
+                범인을 한 명 세우는 순간, 촬영을 방치한 팀 전체의 책임은 빠르게 흐려진다.
                 """,
                 "플레이어",
-                "사건 근처에 있었다는 사실과 범인이라는 결론 사이에는 생각보다 큰 간격이 있다.",
+                "설명은 쉬워졌지만, 정작 사고가 왜 가능했는지는 더 보이지 않게 됐다.",
                 "bg_music_room_night.png",
                 "ch_exorcist.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
@@ -680,15 +712,14 @@ public class Main extends JFrame {
 
         scenes.put("music_true", new Scene(
                 "음악실 사건 결론",
-                "Chapter 3  음악실 사건",
+                "Chapter 2  첫 번째 사고",
                 """
-                진실:
-                한승준은 밤 연주를 녹음하던 중 마이크 스탠드 전선에 발이 걸려 넘어졌다.
-                피아노를 짚는 과정에서 손이 안쪽으로 들어가 있었고, 닫히던 뚜껑에 손가락이 크게 손상되었다.
-                녹음 파일 속 발걸음은 복도를 지나던 김현진의 소리였고, 문 닫힘은 열린 문을 정리한 흔적이었다.
+                주다영은 야간 연습과 촬영을 혼자 이어 가다 피아노 덮개 사고를 당했다.
+                손이 끼는 순간 중심을 잃고 넘어졌고, 머리를 강하게 부딪친 것이 직접 원인이었다.
+                문 닫힘과 발걸음은 사고 직후의 흔적이었고, 학생들이 그것을 뒤늦게 살인 장면처럼 해석하면서 첫 오해가 만들어졌다.
                 """,
                 "양지영",
-                "모든 단서가 누군가를 가리키는 것처럼 보여도, 그게 곧 죄를 뜻하는 건 아니에요.",
+                "그날 필요한 건 더 좋은 장면이 아니라 멈추는 판단이었어요.",
                 "bg_music_room_close.png",
                 "ch_yang_jiyeong.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
@@ -697,56 +728,72 @@ public class Main extends JFrame {
 
         scenes.put("science_intro", new Scene(
                 "과학실 사고",
-                "Chapter 4  과학실 사건",
+                "Chapter 3  두 번째 사고",
                 """
-                피해자: 김준영. 과학 경진대회 준비생.
-                CCTV에는 다른 학생이 잠깐 드나드는 장면이 남아 있고, 실험 기록은 약품이 바뀐 것처럼 보이게 적혀 있다.
-                주다영의 노트에는 '공통점 - 김현진'이라는 메모가 반복된다.
+                두 번째 사고의 피해자는 과학부 한승준이다.
+                승준은 촬영용 실험 장치와 특수 효과 소품을 테스트하던 중 폭발 사고를 당했다.
+                기록에는 장치 반응이 예상보다 강했다고만 적혀 있지만, 학생들은 누군가 약품이나 부품을 건드렸다고 수군댄다.
                 """,
                 "플레이어",
-                "세 번째 사건까지 오면 패턴은 거의 완성된 것처럼 보인다. 그래서 더 위험하다.",
+                "첫 사고 뒤에도 촬영은 멈추지 않았다. 그래서 두 번째 사고는 더 무겁다.",
                 "bg_science_lab_night.png",
-                "ch_ghost_kim_junyeong.png",
+                "ch_ghost_han_seungjun.png",
                 List.of(
-                        new Choice("실험 노트와 용기를 조사한다", "science_lab")
+                        new Choice("장치 기록과 실험 메모를 조사한다", "science_lab")
                 ),
                 null
         ));
 
         scenes.put("science_lab", new Scene(
-                "실험 준비 흔적",
-                "Chapter 4  과학실 사건",
+                "장치 기록과 실험 메모",
+                "Chapter 3  두 번째 사고",
                 """
-                용기 하나의 라벨이 흐릿하게 지워져 있다.
-                김준영은 강산 대신 다른 시약을 쓰고 있다고 믿었고, 금속 도구와 만나 수소 가스가 발생했다.
-                알코올 램프 불꽃이 닿자 폭발이 일어났다.
+                테스트 장비 옆에는 반쯤 지워진 라벨, 다시 적은 반응식, 그리고 촬영용 효과 장치 배치도가 남아 있다.
+                일정표에는 본 촬영 전까지 장치를 완성해야 한다는 메모가 반복되어 있고, 안전 점검 칸은 여러 번 비어 있다.
+                김현진은 테스트 연기를 제안했지만, 팀은 공모전 마감 전에 장면을 완성해야 한다며 강행했다.
                 """,
                 "플레이어",
-                "누군가 바꿔치기한 것처럼 보였지만, 실제로는 관리 부실과 실수가 겹친 비극일 수 있다.",
+                "누군가 손댄 흔적으로도 읽히지만, 급하게 덧씌운 수정 흔적이라는 해석도 충분하다.",
                 "bg_science_explosion_mark.png",
-                "ch_ghost_kim_junyeong_soft.png",
-                List.of(new Choice("추리한다", "science_deduction")),
+                "ch_exorcist.png",
+                List.of(new Choice("단서를 정리한다", "science_review")),
                 g -> g.unlockClue("라벨 지워진 용기")
+        ));
+
+        scenes.put("science_review", new Scene(
+                "과학실 단서 정리",
+                "Chapter 3  두 번째 사고",
+                """
+                폭발은 누군가 일부러 꾸민 장면처럼 보이기 쉽다.
+                하지만 장치 메모, 비어 있는 안전 점검, 촉박한 일정표를 겹쳐 놓으면 이 사고는 조작보다 방치와 강행의 결과에 가깝다.
+                한 사람의 악의보다 여러 사람의 조급함이 더 큰 힘으로 현장을 밀어붙이고 있었다.
+                """,
+                "플레이어",
+                "두 번째 사고는 범인의 손보다 멈추지 못한 팀의 관성을 더 또렷하게 남긴다.",
+                "bg_science_lab_night.png",
+                "ch_exorcist.png",
+                List.of(new Choice("결론을 내린다", "science_deduction")),
+                null
         ));
 
         scenes.put("science_deduction", new Scene(
                 "과학실 추리",
-                "Chapter 4  과학실 사건",
+                "Chapter 3  두 번째 사고",
                 """
                 단서 조합:
-                CCTV 학생 / 변경된 기록처럼 보이는 노트 / 라벨 지워진 용기 / 폭발 반응
-                이 사건은 조작인가, 실수인가.
+                수정된 반응식 / 라벨 지워진 용기 / 비어 있는 안전 점검 / 연기 요청 기록
+                이 사건의 원인은 무엇인가.
                 """,
                 "플레이어",
-                "지금 김현진을 범인으로 결론내리면 모든 사건이 하나로 묶인다. 그래서 오히려 의심해야 한다.",
+                "누군가 손댔다고 믿으면 편해진다. 하지만 그 편안함이 진실과는 다를 수 있다.",
                 "bg_science_lab_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("김현진이 약품을 바꿨다고 본다", "science_wrong", g -> g.suspicionScore++, g -> true, true),
-                        new Choice("라벨이 지워진 용기를 착각한 실험 사고로 본다", "science_true", g -> {
+                        new Choice("김현진이 장치를 조작했다고 본다", "science_wrong", g -> g.suspicionScore++, g -> true, true),
+                        new Choice("촉박한 일정 속 안전 점검이 무너진 장치 사고로 본다", "science_true", g -> {
                             g.scienceSolved = true;
                             g.truthScore++;
-                            g.unlockClue("김준영 사건 해결");
+                            g.unlockClue("한승준 사건 해결");
                         })
                 ),
                 null
@@ -754,108 +801,106 @@ public class Main extends JFrame {
 
         scenes.put("science_wrong", new Scene(
                 "과학실 오판",
-                "Chapter 4  과학실 사건",
+                "Chapter 3  두 번째 사고",
                 """
-                CCTV에 찍힌 다른 학생과 수정된 기록은 누군가 개입한 흔적처럼 보인다.
-                그러나 실제 반응 순서는 관리 부실과 실험 실수만으로도 충분히 설명된다.
-                공통점이 있다고 해서 공통 범인이 반드시 있는 것은 아니다.
+                지워진 라벨과 수정된 메모는 누군가 일부러 손댄 흔적처럼 읽힌다.
+                그러나 그 흔적은 일정에 쫓겨 반복된 임시 수정과 누락된 확인 절차만으로도 설명된다.
+                조작이라는 결론은 선명하지만, 왜 위험한 테스트가 계속되었는지는 끝내 설명하지 못한다.
                 """,
-                "김준영의 잔류 기억",
-                "조금만 더 주의했더라면...",
+                "플레이어",
+                "악의를 하나 상정하는 순간, 모두가 알고도 넘긴 경고는 사라져 버린다.",
                 "bg_science_explosion_mark.png",
-                "ch_ghost_kim_junyeong_soft.png",
+                "ch_exorcist.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
         scenes.put("science_true", new Scene(
                 "과학실 사건 결론",
-                "Chapter 4  과학실 사건",
+                "Chapter 3  두 번째 사고",
                 """
-                진실:
-                김준영은 라벨이 지워진 용기를 잘못 집었다.
-                강산과 금속의 반응으로 수소 가스가 생겼고, 알코올 램프 불꽃이 닿으며 폭발이 일어났다.
-                CCTV 속 학생과 기록 수정은 사건을 더 미스터리하게 보이게 했을 뿐, 직접적 원인은 아니었다.
+                한승준은 촬영용 장치를 급하게 완성하는 과정에서 충분한 안전 점검 없이 테스트를 강행했다.
+                수정된 기록과 반쯤 지워진 라벨은 조작이 아니라 반복된 임시 조치의 흔적이었다.
+                첫 사고 뒤에도 프로젝트를 멈추지 못한 팀의 선택이 두 번째 사고를 더 쉽게 만들었다.
                 """,
-                "플레이어",
-                "세 사건 모두 사고였다. 그런데 왜 모두가 김현진을 범인이라고 믿게 되었을까.",
+                "양지영",
+                "여기까지 왔으면 멈췄어야 했어요. 그런데 다들 한 번만 더 하면 된다고 생각했죠.",
                 "bg_science_lab_night.png",
-                "ch_exorcist.png",
+                "ch_yang_jiyeong.png",
                 List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
                 null
         ));
 
         scenes.put("case_hub", new Scene(
                 "사건 정리",
-                "Chapter 1-4  사건 허브",
+                "Chapter 1-4  프로젝트 조사",
                 """
-                월야고에는 네 명의 귀신이 있다는 소문이 돈다.
-                수영장, 음악실, 과학실, 그리고 옥상.
-                플레이어는 수집한 단서를 다시 연결하며, 사건들이 정말 하나의 연쇄 살인인지 스스로 점검해야 한다.
+                세 사고는 모두 같은 UCC 프로젝트 안에서 일어났다.
+                음악실, 과학실, 수영장. 장소는 달랐지만 일정 압박, 미흡한 안전 확인, 그리고 김현진을 향한 의심이 반복된다.
+                플레이어는 사건들을 한 사람의 범행으로 묶을지, 프로젝트 전체의 실패로 읽을지 스스로 정리해야 한다.
                 """,
                 "플레이어",
-                "모든 사건을 하나로 연결하고 싶은 유혹이 든다. 하지만 그 유혹 자체가 함정일 수도 있다.",
+                "연결점이 많을수록 사람들은 범인을 찾고 싶어 한다. 하지만 연결점이 곧 원인의 전부는 아니다.",
                 "bg_main_hall_night.png",
                 "ch_exorcist.png",
                 List.of(
-                        new Choice("수영장 사건", "pool_intro", g -> {}, g -> !g.poolSolved),
-                        new Choice("음악실 사건", "music_intro", g -> {}, g -> g.poolSolved && !g.musicSolved),
-                        new Choice("과학실 사건", "science_intro", g -> {}, g -> g.poolSolved && g.musicSolved && !g.scienceSolved),
-                        new Choice("옥상 사건", "rooftop_intro", g -> {}, g -> g.poolSolved && g.musicSolved && g.scienceSolved && !g.visitedScenes.contains("rooftop_intro"))
+                        new Choice("음악실 사고", "music_intro", g -> {}, g -> !g.musicSolved),
+                        new Choice("과학실 사고", "science_intro", g -> {}, g -> g.musicSolved && !g.scienceSolved),
+                        new Choice("수영장 사고", "pool_intro", g -> {}, g -> g.musicSolved && g.scienceSolved && !g.poolSolved),
+                        new Choice("최종 보고", "rooftop_intro", g -> {}, g -> g.musicSolved && g.scienceSolved && g.poolSolved && !g.visitedScenes.contains("rooftop_intro"))
                 ),
                 null
         ));
 
         scenes.put("rooftop_intro", new Scene(
-                "옥상 사건",
-                "Chapter 5  옥상 사건",
+                "최종 보고 준비",
+                "Chapter 5  프로젝트 결론",
                 """
-                마지막 피해자는 주다영.
-                주다영은 앞선 사건들을 조사하며 김현진이 범인이라고 믿었고, 자신의 노트에 의심의 논리를 차곡차곡 쌓아 두었다.
-                옥상에는 다툼의 흔적, 젖은 바닥, 난간 충돌 흔적, 그리고 다영이 남긴 메모가 남아 있다.
+                세 사고를 모두 정리하고 나면, 남는 질문은 하나다.
+                김현진은 세 사건 모두 가까이에 있었고 일정표와 배치표에 이름이 남아 있다.
+                그러나 동시에 촬영 중단과 연기를 요청한 기록 역시 계속 김현진 쪽에서 발견된다.
                 """,
                 "양지영",
-                "다영은 누구보다 진실을 믿고 싶어 했어요. 그런데 그 진실이 너무 빨리 하나의 결론으로 굳어졌죠.",
-                "bg_rooftop_night.png",
+                "현진이를 의심하는 건 쉬워요. 하지만 쉬운 결론일수록 마지막까지 다시 봐야 해요.",
+                "bg_archive_room.png",
                 "ch_yang_jiyeong_serious.png",
                 List.of(
-                        new Choice("다영의 노트를 읽는다", "rooftop_note"),
-                        new Choice("최종 추리를 한다", "final_board")
+                        new Choice("회의록과 일정 변경 기록을 읽는다", "rooftop_note"),
+                        new Choice("최종 추리를 한다", "final_board", g -> {}, g -> g.visitedScenes.contains("rooftop_note"))
                 ),
                 null
         ));
 
         scenes.put("rooftop_note", new Scene(
-                "주다영의 노트",
-                "Chapter 5  옥상 사건",
+                "회의록과 일정 변경 기록",
+                "Chapter 5  프로젝트 결론",
                 """
-                노트에는 반복해서 같은 문장이 적혀 있다.
-                '공통점 - 김현진'
-                '기록 수정'
-                '시설 열쇠'
-                '사건 현장 근처 목격'
-                단서들은 누군가를 지목하는 데 충분해 보이지만, 동시에 전부 다른 설명도 가능하다.
+                기록에는 같은 문장이 반복된다.
+                '촬영 연기 제안'
+                '안전 인원 부족'
+                '장치 테스트 보류 필요'
+                '공모전 마감 때문에 강행'
+                김현진의 이름은 사건 현장마다 남아 있지만, 그 대부분은 범행의 흔적이 아니라 어떻게든 프로젝트를 멈춰 세우려던 실패한 시도였다.
                 """,
-                "주다영의 잔류 기억",
-                "내가 틀리면 안 된다고 생각했어. 그래야 이 죽음들이 견딜 만한 이야기가 되니까.",
-                "bg_rooftop_edge.png",
-                "ch_ghost_ju_dayeong.png",
+                "플레이어",
+                "의심의 재료로 보였던 기록이, 다시 읽자 경고의 기록으로 바뀐다.",
+                "bg_archive_room.png",
+                "ch_exorcist.png",
                 List.of(new Choice("최종 추리를 한다", "final_board")),
-                g -> g.unlockClue("주다영 노트")
+                g -> g.unlockClue("프로젝트 회의록")
         ));
 
         scenes.put("final_board", new Scene(
                 "최종 추리",
                 "Final Board",
                 """
-                세 건의 선행 사건은 모두 사고로 설명 가능하다.
-                그러나 주다영은 그 사실을 확인하기 전에 김현진을 옥상으로 불러 추궁했다.
-                언쟁 끝에 주다영은 젖은 바닥에서 미끄러져 난간에 부딪혔고, 그 사고가 마지막 비극이 되었다.
-                이제 플레이어는 하나의 질문에 답해야 한다.
-                '김현진은 범인인가?'
+                세 사고는 각각 다른 장소에서 일어났지만, 모두 같은 프로젝트의 압박과 안전 부재 속에서 이어졌다.
+                학생들은 그 반복 속에서 김현진을 의심했고, 김현진의 침묵은 그 의심을 더 크게 만들었다.
+                이제 플레이어는 최종 결론을 기록해야 한다.
+                '김현진은 범인인가? 아니면 이 프로젝트의 실패가 진짜 원인인가?'
                 """,
                 "플레이어",
-                "내가 찾는 것은 범인인가, 아니면 오해의 구조인가.",
+                "한 사람을 범인으로 만들면 이야기는 깔끔해진다. 하지만 깔끔한 결론이 항상 진실인 건 아니다.",
                 "bg_chapel_night.png",
                 "ch_exorcist.png",
                 List.of(
@@ -867,32 +912,31 @@ public class Main extends JFrame {
         ));
 
         scenes.put("ending_true", new Scene(
-                "진실 루트",
-                "Ending  True",
+                "기록된 진실",
+                "Ending  Truth",
                 """
-                플레이어는 김현진의 무죄를 증명하고, 각 사건을 사고로 다시 기록한다.
-                월야고를 떠돌던 잔류 기억은 더 이상 '범인'을 만들지 않는다.
-                주다영의 마지막 환영은 자신이 틀렸음을 받아들이고, 네 명의 귀신은 조용히 사라진다.
+                플레이어는 김현진 개인에게 향한 의심을 걷어 내고, 세 사고를 하나의 구조적 실패로 기록한다.
+                공모전 마감 압박, 반복된 강행 촬영, 비어 있던 안전 확인이 세 비극의 공통 원인이었다는 사실이 남는다.
+                늦었지만 기록은 바로잡히고, 학교는 더 이상 이 사건들을 '설명하기 쉬운 범죄 이야기'로 포장하지 못한다.
                 """,
-                "주다영의 잔류 기억",
-                "사람들은 우연을 견디지 못해서 이야기를 만들지. 그런데 그 이야기가 또 다른 비극을 만들었네.",
+                "양지영",
+                "이제야 아이들이 왜 죽었는지 제대로 말할 수 있겠네요. 누가 미워서가 아니라, 모두가 멈추지 못해서였다고.",
                 "bg_school_dawn.png",
-                "ch_ghost_group_fade.png",
+                "ch_yang_jiyeong_confess.png",
                 List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
                 null
         ));
 
         scenes.put("ending_wrong_accusation", new Scene(
-                "오판 루트",
-                "Ending  Wrong Accusation",
+                "희생양",
+                "Ending  Scapegoat",
                 """
-                플레이어는 김현진을 범인으로 지목한다.
-                학교는 그 결론을 이용해 사건을 '살인'으로 봉합하고 평판을 지키려 한다.
-                김현진은 퇴학당하지만, 각 사건의 진짜 원인은 끝내 바로잡히지 않는다.
-                귀신들은 해방되지 못한 채 학교에 남는다.
+                플레이어는 김현진을 범인으로 기록한다.
+                학교는 그 결론을 이용해 프로젝트의 안전 문제와 촬영 강행 책임을 한 사람의 악의로 덮어 버린다.
+                사건은 해결된 것처럼 보이지만, 왜 세 사고가 반복되었는지는 끝내 바로잡히지 않는다.
                 """,
                 "플레이어",
-                "모든 조각이 맞아떨어진다고 믿었다. 하지만 너무 완벽한 이야기는 진실이 아니라 욕망일 수도 있다.",
+                "가장 설명하기 쉬운 이름 하나를 남겼다. 대신 구조는 다시 어둠 속으로 밀려났다.",
                 "bg_rooftop_night.png",
                 "",
                 List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
@@ -900,15 +944,15 @@ public class Main extends JFrame {
         ));
 
         scenes.put("ending_silence", new Scene(
-                "침묵 루트",
+                "미완의 보고서",
                 "Ending  Silence",
                 """
                 플레이어는 결론을 보류한다.
-                학교는 사건들을 계속 사고로 남겨 둔 채 침묵을 선택하고, 학생들의 공포는 사라지지 않는다.
-                진실에 닿을 기회는 있었지만, 아무도 그것을 끝까지 기록하지 못한다.
+                학교는 사건들을 각자의 사고로 흩어 두고, 학생들은 여전히 김현진을 의심한 채 서로 다른 이야기를 믿는다.
+                진실에 가장 가까이 갔지만 끝내 기록하지 못한 탓에, 프로젝트의 실패 역시 또렷한 책임으로 남지 못한다.
                 """,
                 "양지영",
-                "아무 말도 하지 않는다고 해서 상처가 사라지진 않아요. 다만 누가 무엇을 믿는지만 더 흐려질 뿐이죠.",
+                "말하지 않으면 아무것도 틀리지 않은 것처럼 보이죠. 하지만 그건 진실을 남기지 않는 방식일 뿐이에요.",
                 "bg_main_hall_night.png",
                 "ch_yang_jiyeong_confess.png",
                 List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
@@ -1083,9 +1127,9 @@ public class Main extends JFrame {
     }
 
     private JButton createChoiceButton(Choice choice) {
-        boolean enabled = choice.isVisible(state);
         boolean completed = isChoiceCompleted(choice);
-        String suffix = enabled ? "" : completed ? " [완료]" : " [잠김]";
+        boolean enabled = choice.isVisible(state) && !completed;
+        String suffix = completed ? " [완료]" : enabled ? "" : " [잠김]";
         String label = applyPlayerName(choice.label) + suffix;
         JButton button = new JButton(asWrappedHtml(label, 24));
         button.setHorizontalAlignment(SwingConstants.CENTER);
@@ -1138,6 +1182,13 @@ public class Main extends JFrame {
             case "pool_intro" -> state.poolSolved;
             case "music_intro" -> state.musicSolved;
             case "science_intro" -> state.scienceSolved;
+            case "pool_video", "pool_interview", "pool_review",
+                    "music_record", "music_review",
+                    "science_lab", "science_review",
+                    "pool_facility_log", "pool_shadow_rumor", "pool_shoeprint",
+                    "music_lid_trace", "music_corridor_witness", "music_torn_sheet",
+                    "science_storage_photo", "science_cleanup_record", "science_handwritten_note",
+                    "rooftop_gate", "rooftop_prejudice", "rooftop_note" -> state.visitedScenes.contains(choice.nextSceneId);
             case "rooftop_intro" -> state.visitedScenes.contains("rooftop_intro");
             case "final_board" -> state.visitedScenes.contains("final_board");
             default -> false;
@@ -1173,6 +1224,11 @@ public class Main extends JFrame {
             solved++;
         }
         return solved;
+    }
+
+    private static boolean canReviewPool(GameState state) {
+        return state.visitedScenes.contains("pool_video")
+                && state.visitedScenes.contains("pool_interview");
     }
 
     private void startDialogueAnimation(String fullText) {
