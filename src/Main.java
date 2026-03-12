@@ -13,7 +13,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.RenderingHints;
@@ -830,11 +829,10 @@ extends JFrame {
         }
         this.prepareSceneFlow(scene);
         this.persistState();
-        this.layoutSceneLayers();
-        this.refreshImages();
         SwingUtilities.invokeLater(() -> {
             this.layoutSceneLayers();
             this.refreshImages();
+            this.scenePanel.revalidate();
             this.scenePanel.repaint();
         });
     }
@@ -1002,7 +1000,7 @@ extends JFrame {
         int n4 = 210;
         int n5 = Math.max(0, n2 - n4);
         int n6 = 20;
-        int n7 = Math.max(n6 + 80, n5 + 48);
+        int n7 = Math.max(n6 + 80, n2 - 24);
         int n8 = Math.max(1, n7 - n6);
         int n9 = Math.max(1, (int)Math.round((double)n * 0.96));
         int n10 = n8;
@@ -1045,9 +1043,8 @@ extends JFrame {
         String string = this.activeBackgroundImage == null ? DEFAULT_PLAYER_NAME : this.activeBackgroundImage;
         String string2 = this.activeCharacterImage == null ? DEFAULT_PLAYER_NAME : this.activeCharacterImage;
         this.setImage(this.backgroundLabel, string, n, n2, (String)(string.isEmpty() ? DEFAULT_PLAYER_NAME : "BG: " + string), true);
-        int n3 = Math.max(0, n2 - 210);
-        int n4 = Math.max(1, n3 + 48 - 20);
-        this.setImage(this.characterLabel, string2, (int)Math.round((double)n * 0.96), n4, (String)(string2.isEmpty() ? DEFAULT_PLAYER_NAME : "CH: " + string2), false);
+        int n3 = Math.max(1, n2 - CHARACTER_TOP_MARGIN - 24);
+        this.setImage(this.characterLabel, string2, (int)Math.round((double)n * 0.96), n3, (String)(string2.isEmpty() ? DEFAULT_PLAYER_NAME : "CH: " + string2), false);
     }
 
     private void setImage(JLabel jLabel, String string, int n, int n2, String string2, boolean bl) {
@@ -1071,8 +1068,14 @@ extends JFrame {
             double d = bl ? Math.max((double)n / (double)n3, (double)n2 / (double)n4) : Math.min((double)n / (double)n3, (double)n2 / (double)n4);
             int n5 = Math.max(1, (int)Math.round((double)n3 * d));
             int n6 = Math.max(1, (int)Math.round((double)n4 * d));
-            Image image = bufferedImage.getScaledInstance(n5, n6, 4);
-            jLabel.setIcon(new ImageIcon(image));
+            BufferedImage bufferedImage2 = new BufferedImage(n5, n6, bufferedImage.getColorModel().hasAlpha() ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+            Graphics2D graphics2D = bufferedImage2.createGraphics();
+            graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics2D.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics2D.drawImage(bufferedImage, 0, 0, n5, n6, null);
+            graphics2D.dispose();
+            jLabel.setIcon(new ImageIcon(bufferedImage2));
             jLabel.setText(DEFAULT_PLAYER_NAME);
         }
         catch (IOException iOException) {
@@ -1365,9 +1368,10 @@ extends JFrame {
         this.currentPage = this.scenePages.get(this.currentPageIndex);
         this.activeBackgroundImage = this.currentPage.backgroundImage();
         this.activeCharacterImage = this.currentPage.characterImage();
-        this.refreshImages();
         this.updateSpeakerBadge();
         this.layoutSceneLayers();
+        this.refreshImages();
+        this.scenePanel.repaint();
         this.startDialogueAnimation(this.currentPage.text());
     }
 
@@ -1426,10 +1430,14 @@ extends JFrame {
     private void showChoicesOverlay() {
         boolean bl;
         this.choicesPanel.removeAll();
-        int n = this.currentScene.choices.size();
+        int n = this.visibleChoices.size();
+        if (n == 0) {
+            this.choiceOverlay.setVisible(false);
+            return;
+        }
         boolean bl2 = bl = n <= 1;
         if (!bl) {
-            for (Choice choice : this.currentScene.choices) {
+            for (Choice choice : this.visibleChoices) {
                 if (this.applyPlayerName(choice.label).length() < 12) continue;
                 bl = true;
                 break;
@@ -1438,7 +1446,7 @@ extends JFrame {
         int n2 = bl ? 1 : 2;
         int n3 = (int)Math.ceil((double)n / (double)n2);
         this.choicesPanel.setLayout(new GridLayout(n3, n2, 12, 12));
-        for (Choice choice : this.currentScene.choices) {
+        for (Choice choice : this.visibleChoices) {
             this.choicesPanel.add(this.createChoiceButton(choice));
         }
         int n4 = n2 == 1 ? 280 : 180;
@@ -1448,6 +1456,9 @@ extends JFrame {
         this.choicesPanel.revalidate();
         this.choicesPanel.repaint();
         this.choiceOverlay.setVisible(true);
+        this.layoutSceneLayers();
+        this.choiceOverlay.revalidate();
+        this.choiceOverlay.repaint();
     }
 
     private void showRestartOverlay() {
@@ -1461,6 +1472,9 @@ extends JFrame {
         this.choicesPanel.revalidate();
         this.choicesPanel.repaint();
         this.choiceOverlay.setVisible(true);
+        this.layoutSceneLayers();
+        this.choiceOverlay.revalidate();
+        this.choiceOverlay.repaint();
     }
 
     // 이름표는 화자 이름과 캐릭터 이미지가 모두 있을 때만 보이게 한다.
