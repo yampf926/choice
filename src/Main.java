@@ -101,25 +101,31 @@ extends JFrame {
     private static final Color ACCENT_GLOW = new Color(118, 128, 154, 42);
     private static final Color BUTTON = new Color(72, 79, 92);
     private static final Color BUTTON_HOVER = new Color(86, 95, 110);
+    // 상단 UI: 장면 제목과 챕터명을 보여준다.
     private final JLabel titleLabel = new JLabel("", 2);
     private final JLabel chapterLabel = new JLabel("", 4);
+    // 장면 레이어: 배경, 캐릭터, 각종 오버레이를 순서대로 쌓는다.
     private final JLabel backgroundLabel = new JLabel("", 0);
     private final JLabel characterLabel = new JLabel("", 0);
     private final JPanel scenePanel = new JPanel(null);
     private final JPanel overlayPanel = new JPanel(new BorderLayout());
+    // 하단 대화창 구성 요소: 카드, 본문 텍스트, 화자 이름표
     private final JPanel hudPanel = new JPanel(null);
     private final StoryTextPanel storyArea = new StoryTextPanel();
     private final JPanel storyPanel = this.createStoryPanel();
     private final JPanel speakerPanel = new JPanel(new FlowLayout(0, 0, 0));
     private final JLabel speakerBadge = new JLabel(" ", 2);
+    // 오버레이 UI: 선택지, 시작화면, 엔딩 모음을 필요할 때만 덮어 띄운다.
     private final JPanel choiceOverlay = new JPanel(null);
     private final JPanel choicesPanel = new JPanel();
     private final JPanel startOverlay = new JPanel(new GridBagLayout());
     private final JPanel galleryOverlay = new JPanel(new GridBagLayout());
+    // 시작 화면 입력과 이미지 캐시
     private final JTextField nameField = new JTextField("");
     private final JPanel galleryListPanel = new JPanel();
     private final Map<String, BufferedImage> imageCache = new LinkedHashMap<String, BufferedImage>();
     private JButton continueGameButton;
+    // 런타임 데이터: 장면 맵, 현재 게임 상태, 엔딩 설명
     private final Map<String, Scene> scenes = new LinkedHashMap<String, Scene>();
     private final GameState state = new GameState();
     private final Map<String, String> endingTitles = new LinkedHashMap<String, String>();
@@ -450,6 +456,7 @@ extends JFrame {
         });
     }
 
+    // scenes.json을 읽어 Scene 런타임 객체로 변환하는 시작점이다.
     private void initScenes() {
         this.scenes.clear();
         for (SceneDefinition sceneDefinition : this.loadSceneDefinitions()) {
@@ -460,6 +467,7 @@ extends JFrame {
         }
     }
 
+    // JSON 파일을 읽고, 최상위 장면 정의 목록으로 바꾼다.
     private List<SceneDefinition> loadSceneDefinitions() {
         try {
             String string = Files.readString(SCENES_PATH, StandardCharsets.UTF_8);
@@ -476,6 +484,7 @@ extends JFrame {
         }
     }
 
+    // 장면 하나를 파싱한다. pages/choices도 같이 읽어 둔다.
     private SceneDefinition parseSceneDefinition(Map<String, Object> map) {
         ArrayList<ChoiceDefinition> arrayList = new ArrayList<ChoiceDefinition>();
         for (Object object2 : this.requireList(map.get("choices"), "choices")) {
@@ -508,6 +517,7 @@ extends JFrame {
         return List.copyOf(arrayList);
     }
 
+    // JSON에 적힌 onEnter 문자열 ID를 실제 상태 변경 함수로 연결한다.
     private Consumer<GameState> buildSceneOnEnter(String string) {
         return switch (string == null ? DEFAULT_PLAYER_NAME : string) {
             case DEFAULT_PLAYER_NAME, "noop" -> null;
@@ -527,6 +537,7 @@ extends JFrame {
         };
     }
 
+    // 선택지 effect ID를 실제 분기/점수/단서 변경 로직으로 바꾼다.
     private Consumer<GameState> buildChoiceEffect(String string) {
         return switch (string == null || string.isBlank() ? "noop" : string) {
             case "noop" -> gameState -> {};
@@ -571,6 +582,7 @@ extends JFrame {
         };
     }
 
+    // 선택지 visibility ID를 실제 표시 조건 함수로 바꾼다.
     private Predicate<GameState> buildChoiceVisibility(String string) {
         return switch (string == null || string.isBlank() ? "always" : string) {
             case "always" -> gameState -> true;
@@ -926,6 +938,8 @@ extends JFrame {
         return Main.hasVisitedAll(gameState, "rooftop_gate", "rooftop_prejudice", "rooftop_note");
     }
 
+    // 현재 페이지 문장을 타이핑 효과로 보여준다.
+    // 사용자가 중간에 클릭하면 revealCurrentPageImmediately()가 나머지를 즉시 채운다.
     private void startDialogueAnimation(String string) {
         if (this.dialogueTimer != null && this.dialogueTimer.isRunning()) {
             this.dialogueTimer.stop();
@@ -978,6 +992,8 @@ extends JFrame {
         this.lastFrameSize = new Dimension(n7, n8);
     }
 
+    // 창 크기에 맞춰 배경, 캐릭터, 텍스트 카드, 선택지 위치를 다시 계산한다.
+    // UI가 어긋나면 먼저 이 좌표 계산이 맞는지 확인하면 된다.
     private void layoutSceneLayers() {
         int n = Math.max(1, this.scenePanel.getWidth());
         int n2 = Math.max(1, this.scenePanel.getHeight());
@@ -1130,6 +1146,8 @@ extends JFrame {
         return arrayList;
     }
 
+    // 장면 하나를 "클릭 한 번당 보여줄 페이지" 목록으로 펼친다.
+    // JSON의 pages가 있으면 그 값을 우선 사용하고, 없으면 narration/dialogue를 자동 분할한다.
     private List<PageEntry> buildPages(String string, Scene scene) {
         ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
         if (!scene.pages.isEmpty()) {
@@ -1204,6 +1222,8 @@ extends JFrame {
         }
     }
 
+    // 실제 텍스트 카드에 들어갈 분량만큼 문자열을 잘라 PageEntry 여러 개로 만든다.
+    // 이 단계가 잘못되면 마지막 줄이 카드 하단에서 잘려 보이기 쉽다.
     private List<PageEntry> splitIntoPages(String string, String string2, String string3, String string4) {
         ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
         ArrayList<String> arrayList2 = new ArrayList<String>();
@@ -1339,6 +1359,8 @@ extends JFrame {
         return string.replace("\ud50c\ub808\uc774\uc5b4", string2);
     }
 
+    // 현재 인덱스의 페이지를 화면 상태에 반영한다.
+    // 배경/캐릭터 이미지와 텍스트, 이름표가 여기서 함께 바뀐다.
     private void showCurrentPage() {
         this.currentPage = this.scenePages.get(this.currentPageIndex);
         this.activeBackgroundImage = this.currentPage.backgroundImage();
@@ -1349,6 +1371,10 @@ extends JFrame {
         this.startDialogueAnimation(this.currentPage.text());
     }
 
+    // 스토리 진행의 핵심 분기:
+    // 1) 타이핑 중이면 즉시 전체 공개
+    // 2) 다음 페이지가 있으면 이동
+    // 3) 마지막 페이지면 선택지 또는 엔딩 처리
     private void advanceStory() {
         if (this.choiceOverlay.isVisible()) {
             return;
@@ -1437,6 +1463,7 @@ extends JFrame {
         this.choiceOverlay.setVisible(true);
     }
 
+    // 이름표는 화자 이름과 캐릭터 이미지가 모두 있을 때만 보이게 한다.
     private void updateSpeakerBadge() {
         if (this.currentScene == null) {
             this.speakerBadge.setText(" ");
@@ -1513,6 +1540,8 @@ extends JFrame {
         }
     }
 
+    // 플레이 중 계속 유지되는 상태 묶음이다.
+    // 어떤 사건을 해결했는지, 단서를 얻었는지, 엔딩을 봤는지 모두 여기 저장된다.
     private static class GameState {
         boolean poolSolved;
         boolean musicSolved;
@@ -1633,6 +1662,8 @@ extends JFrame {
         }
     }
 
+    // 외부 라이브러리 없이 scenes.json을 읽기 위한 최소 JSON 파서다.
+    // 현재 프로젝트에 필요한 object/array/string/boolean/null 범위만 직접 처리한다.
     private static final class SimpleJsonParser {
         private final String source;
         private int index;
