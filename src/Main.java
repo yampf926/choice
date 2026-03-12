@@ -87,7 +87,7 @@ extends JFrame {
     private static final int STORY_TEXT_TOP_PADDING = 18;
     private static final int STORY_TEXT_SIDE_PADDING = 18;
     private static final int STORY_TEXT_BOTTOM_PADDING = 24;
-    private static final Path SAVE_PATH = Path.of("out", "save.properties");
+    private static final Path SAVE_PATH = Path.of("save.properties");
     private static final Path SCENES_PATH = Path.of("assets", "scenes.json");
     private static final double MOBILE_ASPECT_RATIO = 0.5625;
     private static final Color NIGHT = new Color(10, 12, 18);
@@ -315,11 +315,10 @@ extends JFrame {
     private JPanel createStartPanel() {
         JPanel jPanel = this.createOverlayCard(new GridBagLayout());
         jPanel.setBorder(new EmptyBorder(22, 22, 22, 22));
-        jPanel.setPreferredSize(new Dimension(320, 424));
+        jPanel.setPreferredSize(new Dimension(320, 456));
         JPanel jPanel2 = new JPanel();
         jPanel2.setLayout(new BoxLayout(jPanel2, 1));
         jPanel2.setOpaque(false);
-        jPanel2.setPreferredSize(new Dimension(240, 286));
         JLabel jLabel = new JLabel("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50");
         jLabel.setAlignmentX(0.5f);
         jLabel.setHorizontalAlignment(0);
@@ -1022,7 +1021,7 @@ extends JFrame {
         int n18 = Math.max(1, n17 - n16);
         Dimension dimension = this.choicesPanel.getPreferredSize();
         int n19 = Math.max(18, (n - dimension.width) / 2);
-        int n20 = n16 + Math.max(0, (n18 - dimension.height) / 2);
+        int n20 = Math.max(12, n5 - dimension.height - 12);
         this.choicesPanel.setBounds(n19, n20, dimension.width, dimension.height);
         this.scenePanel.setComponentZOrder(this.backgroundLabel, 6);
         this.scenePanel.setComponentZOrder(this.characterLabel, 5);
