@@ -431,6 +431,7 @@ extends JFrame {
         return jPanel;
     }
 
+    // 엔딩 아카이브 화면에서 사용할 제목과 설명 텍스트를 미리 등록한다.
     private void initEndingMetadata() {
         this.endingTitles.put("ending_true", "\uae30\ub85d\ub41c \uc9c4\uc2e4");
         this.endingTitles.put("ending_wrong_accusation", "\ud76c\uc0dd\uc591");
@@ -440,6 +441,7 @@ extends JFrame {
         this.endingDescriptions.put("ending_silence", "\uc9c4\uc2e4 \uc9c1\uc804\uc5d0\uc11c \uba48\ucdb0 \ud504\ub85c\uc81d\ud2b8\uc758 \ucc45\uc784\ub9cc \ud750\ub824\uc9c4 \uacb0\ub9d0");
     }
 
+    // 스페이스 키로 다음 대사/페이지를 넘길 수 있게 전역 키 바인딩을 건다.
     private void installKeyBindings() {
         JRootPane jRootPane = this.getRootPane();
         InputMap inputMap = jRootPane.getInputMap(2);
@@ -455,6 +457,7 @@ extends JFrame {
     }
 
     // scenes.json을 읽어 Scene 런타임 객체로 변환하는 시작점이다.
+    // assets/scenes.json을 읽어 Scene 객체 맵으로 변환한다.
     private void initScenes() {
         this.scenes.clear();
         for (SceneDefinition sceneDefinition : this.loadSceneDefinitions()) {
@@ -466,6 +469,7 @@ extends JFrame {
     }
 
     // JSON 파일을 읽고, 최상위 장면 정의 목록으로 바꾼다.
+    // JSON 루트 배열을 SceneDefinition 목록으로 파싱한다.
     private List<SceneDefinition> loadSceneDefinitions() {
         try {
             String string = Files.readString(SCENES_PATH, StandardCharsets.UTF_8);
@@ -483,6 +487,7 @@ extends JFrame {
     }
 
     // 장면 하나를 파싱한다. pages/choices도 같이 읽어 둔다.
+    // 장면 하나의 원시 JSON 맵을 타입이 있는 정의 객체로 변환한다.
     private SceneDefinition parseSceneDefinition(Map<String, Object> map) {
         ArrayList<ChoiceDefinition> arrayList = new ArrayList<ChoiceDefinition>();
         for (Object object2 : this.requireList(map.get("choices"), "choices")) {
@@ -499,14 +504,17 @@ extends JFrame {
         return new SceneDefinition(this.readRequiredString(map, "id"), this.readRequiredString(map, "title"), this.readRequiredString(map, "chapter"), this.readRequiredString(map, "narration"), this.readRequiredString(map, "speaker"), this.readRequiredString(map, "dialogue"), this.readRequiredString(map, "backgroundImage"), this.readRequiredString(map, "characterImage"), this.readOptionalString(map, "onEnter"), arrayList2, arrayList);
     }
 
+    // 페이지 JSON 오브젝트를 읽어 텍스트/이미지 정보를 분리한다.
     private PageDefinition parsePageDefinition(Map<String, Object> map) {
         return new PageDefinition(this.readRequiredString(map, "text"), this.readOptionalString(map, "speaker"), this.readOptionalString(map, "backgroundImage"), this.readOptionalString(map, "characterImage"));
     }
 
+    // 선택지 JSON 오브젝트를 읽어 다음 장면과 상태 변화 규칙을 만든다.
     private ChoiceDefinition parseChoiceDefinition(Map<String, Object> map) {
         return new ChoiceDefinition(this.readRequiredString(map, "label"), this.readRequiredString(map, "nextSceneId"), this.readOptionalString(map, "effect"), this.readOptionalString(map, "visibility"), this.readBoolean(map, "recordsSuspicion"));
     }
 
+    // JSON 선택지 정의를 실제 런타임 Choice 객체 목록으로 바꾼다.
     private List<Choice> buildChoices(List<ChoiceDefinition> list) {
         ArrayList<Choice> arrayList = new ArrayList<Choice>();
         for (ChoiceDefinition choiceDefinition : list) {
@@ -516,6 +524,7 @@ extends JFrame {
     }
 
     // JSON에 적힌 onEnter 문자열 ID를 실제 상태 변경 함수로 연결한다.
+    // 장면 진입 시 실행할 상태 변경 로직을 문자열 키로 매핑한다.
     private Consumer<GameState> buildSceneOnEnter(String string) {
         return switch (string == null ? DEFAULT_PLAYER_NAME : string) {
             case DEFAULT_PLAYER_NAME, "noop" -> null;
@@ -536,6 +545,7 @@ extends JFrame {
     }
 
     // 선택지 effect ID를 실제 분기/점수/단서 변경 로직으로 바꾼다.
+    // 선택지 effect 키를 실제 상태 변경 함수로 해석한다.
     private Consumer<GameState> buildChoiceEffect(String string) {
         return switch (string == null || string.isBlank() ? "noop" : string) {
             case "noop" -> gameState -> {};
@@ -581,6 +591,7 @@ extends JFrame {
     }
 
     // 선택지 visibility ID를 실제 표시 조건 함수로 바꾼다.
+    // 선택지 visibility 키를 노출 여부 판정 함수로 바꾼다.
     private Predicate<GameState> buildChoiceVisibility(String string) {
         return switch (string == null || string.isBlank() ? "always" : string) {
             case "always" -> gameState -> true;
@@ -596,6 +607,7 @@ extends JFrame {
         };
     }
 
+    // scenes.json에서 참조한 이미지 파일이 실제 assets/images에 존재하는지 검증한다.
     private void validateImageReference(String string, String string2, String string3) {
         if (string3 == null || string3.isBlank()) {
             return;
@@ -606,6 +618,7 @@ extends JFrame {
         }
     }
 
+    // 필수 문자열 필드를 읽고, 없으면 즉시 예외를 던진다.
     private String readRequiredString(Map<String, Object> map, String string) {
         Object object = map.get(string);
         if (!(object instanceof String)) {
@@ -615,6 +628,7 @@ extends JFrame {
         return string2;
     }
 
+    // 선택 문자열 필드를 읽고, 없으면 빈 문자열로 취급한다.
     private String readOptionalString(Map<String, Object> map, String string) {
         Object object = map.get(string);
         if (object == null) {
@@ -627,6 +641,7 @@ extends JFrame {
         throw new IllegalArgumentException("\ubb38\uc790\uc5f4 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
     }
 
+    // boolean 필드를 읽을 때 타입이 틀리면 조기에 실패시킨다.
     private boolean readBoolean(Map<String, Object> map, String string) {
         Object object = map.get(string);
         if (object instanceof Boolean) {
@@ -636,6 +651,7 @@ extends JFrame {
         throw new IllegalArgumentException("\ubd88\ub9ac\uc5b8 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
     }
 
+    // 파싱된 페이지 정의를 화면 전개용 PageSpec 목록으로 단순 변환한다.
     private List<PageSpec> buildPageSpecs(List<PageDefinition> list) {
         ArrayList<PageSpec> arrayList = new ArrayList<PageSpec>();
         for (PageDefinition pageDefinition : list) {
@@ -644,6 +660,7 @@ extends JFrame {
         return List.copyOf(arrayList);
     }
 
+    // 페이지별로 덮어쓴 배경/캐릭터 이미지도 별도로 검증한다.
     private void validatePageDefinitions(SceneDefinition sceneDefinition) {
         for (int i = 0; i < sceneDefinition.pages.size(); ++i) {
             PageDefinition pageDefinition = sceneDefinition.pages.get(i);
@@ -655,6 +672,7 @@ extends JFrame {
         }
     }
 
+    // JSON 파서 결과가 배열인지 강제한다.
     private List<Object> requireList(Object object, String string) {
         if (object instanceof List) {
             List list = (List)object;
@@ -663,6 +681,7 @@ extends JFrame {
         throw new IllegalArgumentException(string + " must be a JSON array");
     }
 
+    // JSON 파서 결과가 객체인지 강제하고 String 키 맵으로 정규화한다.
     private Map<String, Object> requireMap(Object object, String string) {
         if (object instanceof Map) {
             Map map = (Map)object;
@@ -675,10 +694,12 @@ extends JFrame {
         throw new IllegalArgumentException(string + " must be a JSON object");
     }
 
+    // 현재 런의 상태를 초기 기본값으로 돌린다.
     private void resetState() {
         this.state.reset();
     }
 
+    // 시작 화면 진입 시 기본 배경과 입력 UI만 남기고 나머지 오버레이를 정리한다.
     private void showStartScreen() {
         this.currentScene = null;
         this.currentSceneId = "start_menu";
@@ -695,11 +716,11 @@ extends JFrame {
         this.startOverlay.setVisible(true);
         this.hudPanel.setVisible(false);
         this.refreshContinueButton();
-        this.layoutSceneLayers();
-        this.refreshImages();
+        this.refreshSceneFrame();
         SwingUtilities.invokeLater(() -> this.nameField.requestFocusInWindow());
     }
 
+    // 새 게임 시작 시 입력한 이름을 반영하고 프롤로그 첫 장면으로 이동한다.
     private void startGame() {
         String string;
         String string2 = string = this.nameField.getText() == null ? DEFAULT_PLAYER_NAME : this.nameField.getText().trim();
@@ -709,12 +730,11 @@ extends JFrame {
         }
         this.state.playerName = string;
         this.state.resetForNewRun();
-        this.startOverlay.setVisible(false);
-        this.galleryOverlay.setVisible(false);
-        this.hudPanel.setVisible(true);
+        this.showGameplayView();
         this.showScene("prologue_arrival");
     }
 
+    // 저장된 상태를 읽어 마지막으로 보던 장면부터 이어서 시작한다.
     private void continueGame() {
         SaveData saveData = SaveData.load(SAVE_PATH);
         if (saveData == null) {
@@ -724,12 +744,11 @@ extends JFrame {
         saveData.applyTo(this.state);
         this.textSpeedMs = saveData.textSpeedMs;
         this.nameField.setText(this.state.playerName);
-        this.startOverlay.setVisible(false);
-        this.galleryOverlay.setVisible(false);
-        this.hudPanel.setVisible(true);
+        this.showGameplayView();
         this.showScene(saveData.currentSceneId == null || saveData.currentSceneId.isBlank() ? "prologue_arrival" : saveData.currentSceneId);
     }
 
+    // 저장 파일을 지우고 시작 화면으로 복귀한다.
     private void clearSaveData() {
         try {
             Files.deleteIfExists(SAVE_PATH);
@@ -741,6 +760,7 @@ extends JFrame {
         this.showStartScreen();
     }
 
+    // 이어하기 버튼은 저장 파일 존재 여부에 따라 즉시 활성/비활성화한다.
     private void refreshContinueButton() {
         if (this.continueGameButton != null) {
             this.continueGameButton.setEnabled(Files.exists(SAVE_PATH, new LinkOption[0]));
@@ -752,6 +772,7 @@ extends JFrame {
         this.refreshContinueButton();
     }
 
+    // 앱 시작 시 기존 저장 파일이 있으면 상태를 메모리에만 미리 복원한다.
     private void loadSaveData() {
         SaveData saveData = SaveData.load(SAVE_PATH);
         if (saveData == null) {
@@ -763,6 +784,7 @@ extends JFrame {
         this.refreshContinueButton();
     }
 
+    // 엔딩 모음 화면은 게임 HUD 대신 전용 카드만 보이도록 전환한다.
     private void showEndingGallery() {
         this.refreshEndingGallery();
         this.startOverlay.setVisible(false);
@@ -776,10 +798,10 @@ extends JFrame {
         this.activeCharacterImage = DEFAULT_PLAYER_NAME;
         this.titleLabel.setText("\uc5d4\ub529 \ubaa8\uc74c");
         this.chapterLabel.setText("ARCHIVE");
-        this.layoutSceneLayers();
-        this.refreshImages();
+        this.refreshSceneFrame();
     }
 
+    // 해금 여부에 맞춰 엔딩 카드 목록을 다시 그린다.
     private void refreshEndingGallery() {
         this.galleryListPanel.removeAll();
         for (String string : this.endingTitles.keySet()) {
@@ -805,6 +827,28 @@ extends JFrame {
         this.galleryListPanel.repaint();
     }
 
+    // HUD가 보이는 일반 장면 화면 상태로 공통 UI를 맞춘다.
+    private void showGameplayView() {
+        this.startOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(false);
+        this.hudPanel.setVisible(true);
+    }
+
+    // 장면 패널의 좌표와 이미지를 한 번에 다시 계산한다.
+    private void refreshSceneFrame() {
+        this.layoutSceneLayers();
+        this.refreshImages();
+    }
+
+    // 선택지/재시작 오버레이를 화면에 보이게 한 뒤 위치를 다시 계산한다.
+    private void refreshChoiceOverlay() {
+        this.choiceOverlay.setVisible(true);
+        this.layoutSceneLayers();
+        this.choiceOverlay.revalidate();
+        this.choiceOverlay.repaint();
+    }
+
+    // 장면 전환의 공통 진입점이다. 상태 반영, 저장, 첫 페이지 표시까지 담당한다.
     private void showScene(String string) {
         Scene scene = this.scenes.get(string);
         if (scene == null) {
@@ -820,22 +864,20 @@ extends JFrame {
         this.chapterLabel.setText(this.applyPlayerName(scene.chapter));
         this.activeBackgroundImage = scene.backgroundImage;
         this.activeCharacterImage = scene.characterImage;
-        this.startOverlay.setVisible(false);
-        this.galleryOverlay.setVisible(false);
-        this.hudPanel.setVisible(true);
+        this.showGameplayView();
         if (this.isEndingSceneId(string)) {
             this.state.seenEndings.add(string);
         }
         this.prepareSceneFlow(scene);
         this.persistState();
         SwingUtilities.invokeLater(() -> {
-            this.layoutSceneLayers();
-            this.refreshImages();
+            this.refreshSceneFrame();
             this.scenePanel.revalidate();
             this.scenePanel.repaint();
         });
     }
 
+    // 선택지 버튼은 완료 여부와 가시성에 따라 색상/활성 상태를 바꾼다.
     private JButton createChoiceButton(Choice choice) {
         final boolean bl = this.isChoiceCompleted(choice);
         final boolean bl2 = choice.isVisible(this.state) && !bl;
@@ -877,6 +919,7 @@ extends JFrame {
         return jButton;
     }
 
+    // 이미 처리한 조사 분기는 다시 방문 여부를 기준으로 비활성화한다.
     private boolean isChoiceCompleted(Choice choice) {
         return switch (choice.nextSceneId) {
             case "pool_intro" -> this.state.poolSolved;
@@ -889,14 +932,17 @@ extends JFrame {
         };
     }
 
+    // 게임 전반에서 쓰는 버튼 테두리 스타일을 한 곳에 모아둔다.
     private Border choiceBorder(Color color, Color color2) {
         return BorderFactory.createCompoundBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(color, 1), BorderFactory.createLineBorder(color2, 1)), new EmptyBorder(12, 16, 12, 16));
     }
 
+    // 디버그/확장 시 쓰기 쉽게 상태 요약 문자열을 만들어 둔다.
     private String buildStatusText() {
         return "truth=" + this.state.truthScore + "  suspect=" + this.state.suspicionScore + "  clues=" + this.state.clues.size() + "  solved=" + this.solvedCount() + "/3";
     }
 
+    // 개별 사건 해결 수를 합산해 진행률 계산에 재사용한다.
     private int solvedCount() {
         int n = 0;
         if (this.state.poolSolved) {
@@ -911,6 +957,7 @@ extends JFrame {
         return n;
     }
 
+    // 특정 분기들을 모두 방문했는지 판정하는 공통 헬퍼다.
     private static boolean hasVisitedAll(GameState gameState, String ... stringArray) {
         for (String string : stringArray) {
             if (gameState.visitedScenes.contains(string)) continue;
@@ -1046,6 +1093,7 @@ extends JFrame {
         this.setImage(this.characterLabel, string2, (int)Math.round((double)n * 0.96), n3, (String)(string2.isEmpty() ? DEFAULT_PLAYER_NAME : "CH: " + string2), false);
     }
 
+    // 라벨에 배경/캐릭터 이미지를 맞춤 스케일로 그려 넣고, 없으면 폴백 텍스트를 둔다.
     private void setImage(JLabel jLabel, String string, int n, int n2, String string2, boolean bl) {
         if (string == null || string.isEmpty()) {
             jLabel.setIcon(null);
@@ -1083,6 +1131,7 @@ extends JFrame {
         }
     }
 
+    // 캐릭터 PNG 외곽의 투명 여백을 제거해 화면 중앙 정렬이 더 자연스럽게 보이게 한다.
     private BufferedImage trimTransparentEdges(BufferedImage bufferedImage) {
         int n = bufferedImage.getWidth();
         int n2 = bufferedImage.getHeight();
@@ -1111,6 +1160,7 @@ extends JFrame {
         return bufferedImage.getSubimage(n, n2, n3 - n + 1, n4 - n2 + 1);
     }
 
+    // 한 번 읽은 이미지는 캐시에 보관해 장면 전환 시 디스크 접근을 줄인다.
     private BufferedImage loadImageCached(String string) throws IOException {
         BufferedImage bufferedImage = this.imageCache.get(string);
         if (bufferedImage != null) {
@@ -1124,6 +1174,7 @@ extends JFrame {
         return bufferedImage2;
     }
 
+    // 장면에 들어갈 때 페이지 목록과 보이는 선택지를 미리 계산해 둔다.
     private void prepareSceneFlow(Scene scene) {
         this.visibleChoices = this.collectVisibleChoices(scene);
         this.scenePages = this.buildPages(this.currentSceneId, scene);
@@ -1139,6 +1190,7 @@ extends JFrame {
         this.showCurrentPage();
     }
 
+    // 현재 GameState 기준으로 실제 노출 가능한 선택지만 추린다.
     private List<Choice> collectVisibleChoices(Scene scene) {
         ArrayList<Choice> arrayList = new ArrayList<Choice>();
         for (Choice choice : scene.choices) {
@@ -1150,6 +1202,7 @@ extends JFrame {
 
     // 장면 하나를 "클릭 한 번당 보여줄 페이지" 목록으로 펼친다.
     // JSON의 pages가 있으면 그 값을 우선 사용하고, 없으면 narration/dialogue를 자동 분할한다.
+    // 장면 하나를 실제 클릭 단위 페이지 목록으로 펼친다.
     private List<PageEntry> buildPages(String string, Scene scene) {
         ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
         if (!scene.pages.isEmpty()) {
@@ -1170,6 +1223,7 @@ extends JFrame {
         return arrayList;
     }
 
+    // 페이지별 캐릭터 이미지는 명시값, 화자 매핑, 내레이션 추론 순으로 결정한다.
     private String resolvePageCharacterImage(String string, String string2, String string3) {
         if (string3 != null && !string3.isBlank()) {
             return string3;
@@ -1180,6 +1234,7 @@ extends JFrame {
         return this.inferNarrationCharacterImage(string);
     }
 
+    // 화자 이름을 표준 캐릭터 이미지 파일명에 매핑한다.
     private String characterImageForSpeaker(String string) {
         return switch (string == null ? DEFAULT_PLAYER_NAME : string.strip()) {
             case "\ud50c\ub808\uc774\uc5b4" -> "ch_player.png";
@@ -1194,6 +1249,7 @@ extends JFrame {
         };
     }
 
+    // 내레이션에서 특정 인물이 단독으로 언급되면 해당 캐릭터 이미지를 자동 추론한다.
     private String inferNarrationCharacterImage(String string) {
         if (string == null || string.isBlank()) {
             return DEFAULT_PLAYER_NAME;
@@ -1218,6 +1274,7 @@ extends JFrame {
         return DEFAULT_PLAYER_NAME;
     }
 
+    // 내레이션 문장에서 특정 이름이 등장했는지 기록한다.
     private void collectNarrationMention(Map<String, String> map, String string, String string2, String string3) {
         if (string.contains(string2)) {
             map.put(string3, string3);
@@ -1226,6 +1283,7 @@ extends JFrame {
 
     // 실제 텍스트 카드에 들어갈 분량만큼 문자열을 잘라 PageEntry 여러 개로 만든다.
     // 이 단계가 잘못되면 마지막 줄이 카드 하단에서 잘려 보이기 쉽다.
+    // 긴 텍스트를 대화창 높이에 맞는 여러 페이지로 잘라 PageEntry 목록으로 만든다.
     private List<PageEntry> splitIntoPages(String string, String string2, String string3, String string4) {
         ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
         ArrayList<String> arrayList2 = new ArrayList<String>();
@@ -1267,6 +1325,7 @@ extends JFrame {
         return arrayList;
     }
 
+    // 현재 폰트/패널 높이 기준으로 한 페이지에 들어갈 수 있는 줄 수를 계산한다.
     private int getStoryTextLineCapacity() {
         FontMetrics fontMetrics = this.storyArea.getFontMetrics(this.storyArea.getFont());
         Insets insets = this.storyArea.getInsets();
@@ -1274,6 +1333,7 @@ extends JFrame {
         return Math.max(1, n / Math.max(1, fontMetrics.getHeight()) - 1);
     }
 
+    // 줄바꿈 계산에 사용할 실제 본문 너비를 반환한다.
     private int getStoryTextWidth() {
         Insets insets = this.storyArea.getInsets();
         int n = this.scenePanel.getWidth();
@@ -1287,6 +1347,7 @@ extends JFrame {
         return Math.max(1, n2 - insets.left - insets.right);
     }
 
+    // Swing 폰트 메트릭으로 문자열이 몇 줄로 감길지 근사 계산한다.
     private int countWrappedLines(String string) {
         if (string == null || string.isBlank()) {
             return 1;
@@ -1310,6 +1371,7 @@ extends JFrame {
         return Math.max(1, n2);
     }
 
+    // 한 페이지에 다 들어가지 않는 문장을 읽기 좋은 경계에서 여러 조각으로 나눈다.
     private List<String> splitOversizeText(String string, int n) {
         String string2;
         ArrayList<String> arrayList = new ArrayList<String>();
@@ -1346,6 +1408,7 @@ extends JFrame {
         return arrayList;
     }
 
+    // 문장 부호나 공백 근처를 우선해 가독성 좋은 분할 위치를 찾는다.
     private int findReadableSplitIndex(String string, int n) {
         int n2;
         for (int i = n2 = Math.max(1, Math.min(n, string.length())); i > Math.max(1, n2 - 12); --i) {
@@ -1356,6 +1419,7 @@ extends JFrame {
         return n2;
     }
 
+    // 스크립트의 "플레이어" 토큰을 현재 입력한 이름으로 치환한다.
     private String applyPlayerName(String string) {
         String string2 = this.state.playerName == null || this.state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : this.state.playerName.strip();
         return string.replace("\ud50c\ub808\uc774\uc5b4", string2);
@@ -1426,6 +1490,7 @@ extends JFrame {
         this.showScene(choice.nextSceneId);
     }
 
+    // 현재 장면의 선택지 버튼 묶음을 구성해 오버레이로 띄운다.
     private void showChoicesOverlay() {
         boolean bl;
         this.choicesPanel.removeAll();
@@ -1454,12 +1519,10 @@ extends JFrame {
         this.choicesPanel.setPreferredSize(new Dimension(n5, n6));
         this.choicesPanel.revalidate();
         this.choicesPanel.repaint();
-        this.choiceOverlay.setVisible(true);
-        this.layoutSceneLayers();
-        this.choiceOverlay.revalidate();
-        this.choiceOverlay.repaint();
+        this.refreshChoiceOverlay();
     }
 
+    // 엔딩에서는 선택지 대신 "다시 시작" 버튼 하나만 같은 오버레이 구조에 띄운다.
     private void showRestartOverlay() {
         this.choicesPanel.removeAll();
         this.choicesPanel.setLayout(new GridLayout(1, 1, 0, 0));
@@ -1470,10 +1533,7 @@ extends JFrame {
         this.choicesPanel.setPreferredSize(new Dimension(220, 58));
         this.choicesPanel.revalidate();
         this.choicesPanel.repaint();
-        this.choiceOverlay.setVisible(true);
-        this.layoutSceneLayers();
-        this.choiceOverlay.revalidate();
-        this.choiceOverlay.repaint();
+        this.refreshChoiceOverlay();
     }
 
     // 이름표는 화자 이름과 캐릭터 이미지가 모두 있을 때만 보이게 한다.
@@ -1493,19 +1553,23 @@ extends JFrame {
         this.speakerPanel.setVisible(bl3);
     }
 
+    // 현재 장면이 엔딩 장면인지 빠르게 판정한다.
     private boolean isEndingScene() {
         return this.isEndingSceneId(this.currentSceneId);
     }
 
+    // 엔딩 장면 ID는 접두사 규칙으로 구분한다.
     private boolean isEndingSceneId(String string) {
         return string != null && string.startsWith("ending_");
     }
 
+    // JButton의 HTML 렌더링을 이용해 긴 선택지 텍스트를 중앙 정렬로 감싼다.
     private String asWrappedHtml(String string, int n) {
         String string2 = string.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("\n", "<br>");
         return "<html><div style='width:" + n + "em; text-align:center;'>" + string2 + "</div></html>";
     }
 
+    // Swing 앱 진입점. UI 생성은 EDT에서 시작한다.
     public static void main(String[] stringArray) {
         SwingUtilities.invokeLater(() -> new Main().setVisible(true));
     }
@@ -1514,9 +1578,11 @@ extends JFrame {
     extends JComponent {
         private String text = "";
 
+        // Main에서 생성해 본문 텍스트 라벨 대신 재사용한다.
         private StoryTextPanel() {
         }
 
+        // 새 대사 텍스트를 보관하고 repaint를 요청한다.
         void setText(String string) {
             this.text = string == null ? Main.DEFAULT_PLAYER_NAME : string;
             this.repaint();
@@ -1569,15 +1635,18 @@ extends JFrame {
         final List<String> suspectHistory = new ArrayList<String>();
         final Map<String, String> evidenceBoard = new LinkedHashMap<String, String>();
 
+        // 상태 객체는 Main 내부에서 하나만 생성한다.
         private GameState() {
         }
 
+        // 단서는 한 번만 추가하고 증거판에도 같은 키를 남긴다.
         void unlockClue(String string) {
             if (this.clues.add(string)) {
                 this.evidenceBoard.put(string, "\ud655\ubcf4");
             }
         }
 
+        // 새 게임 시작 시 플레이어 이름과 엔딩 해금만 남기고 진행 정보를 비운다.
         void resetForNewRun() {
             this.poolSolved = false;
             this.musicSolved = false;
@@ -1591,6 +1660,7 @@ extends JFrame {
             this.evidenceBoard.clear();
         }
 
+        // 저장 삭제 등 완전 초기화 시에는 이름과 엔딩 해금도 함께 초기화한다.
         void reset() {
             this.resetForNewRun();
             this.playerName = Main.DEFAULT_PLAYER_NAME;
@@ -1598,12 +1668,14 @@ extends JFrame {
         }
     }
 
+    // 실제 화면 렌더링에 쓰는 텍스트/화자/이미지 묶음이다.
     private record PageEntry(String text, String speaker, String backgroundImage, String characterImage) {
         private static PageEntry empty() {
             return new PageEntry(Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME);
         }
     }
 
+    // 시작 화면 이름 입력란을 최대 길이로 제한하는 필터다.
     private static class LengthFilter
     extends DocumentFilter {
         private final int maxLength;
@@ -1636,9 +1708,11 @@ extends JFrame {
         }
     }
 
+    // scenes.json의 장면 원본 구조를 담는 파싱 전용 레코드다.
     private record SceneDefinition(String id, String title, String chapter, String narration, String speaker, String dialogue, String backgroundImage, String characterImage, String onEnter, List<PageDefinition> pages, List<ChoiceDefinition> choices) {
     }
 
+    // Scene은 파싱 결과를 게임 런타임에서 바로 쓰기 쉽게 정리한 구조다.
     private static class Scene {
         final String title;
         final String chapter;
@@ -1675,16 +1749,17 @@ extends JFrame {
         }
     }
 
-    // 외부 라이브러리 없이 scenes.json을 읽기 위한 최소 JSON 파서다.
-    // 현재 프로젝트에 필요한 object/array/string/boolean/null 범위만 직접 처리한다.
+    // 외부 JSON 라이브러리 없이 scenes.json만 읽기 위한 최소 파서다.
     private static final class SimpleJsonParser {
         private final String source;
         private int index;
 
+        // 파서 입력 원문을 보관하고 index를 앞에서부터 이동시킨다.
         private SimpleJsonParser(String string) {
             this.source = string;
         }
 
+        // 전체 JSON 문자열을 한 번 파싱하고 끝까지 소비했는지 검증한다.
         private Object parse() {
             this.skipWhitespace();
             Object object = this.parseValue();
@@ -1695,6 +1770,7 @@ extends JFrame {
             return object;
         }
 
+        // 현재 문자에 따라 object/array/string/literal 분기를 고른다.
         private Object parseValue() {
             this.skipWhitespace();
             if (this.index >= this.source.length()) {
@@ -1712,6 +1788,7 @@ extends JFrame {
             };
         }
 
+        // 중첩 JSON object를 LinkedHashMap으로 읽어 들인다.
         private Map<String, Object> parseObject() {
             LinkedHashMap<String, Object> linkedHashMap = new LinkedHashMap<String, Object>();
             this.expect('{');
@@ -1734,6 +1811,7 @@ extends JFrame {
             }
         }
 
+        // JSON array를 순서가 유지되는 리스트로 읽어 들인다.
         private List<Object> parseArray() {
             ArrayList<Object> arrayList = new ArrayList<Object>();
             this.expect('[');
@@ -1753,6 +1831,7 @@ extends JFrame {
             }
         }
 
+        // escape 시퀀스를 포함한 JSON 문자열 하나를 복원한다.
         private String parseString() {
             this.expect('\"');
             StringBuilder stringBuilder = new StringBuilder();
@@ -1805,6 +1884,7 @@ extends JFrame {
             throw this.error("\ubb38\uc790\uc5f4\uc774 \ub2eb\ud788\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.");
         }
 
+        // \\uXXXX 형태의 유니코드 escape를 실제 문자로 바꾼다.
         private char parseUnicodeEscape() {
             if (this.index + 4 > this.source.length()) {
                 throw this.error("\uc720\ub2c8\ucf54\ub4dc escape \uae38\uc774\uac00 \ubd80\uc871\ud569\ub2c8\ub2e4.");
@@ -1819,6 +1899,7 @@ extends JFrame {
             }
         }
 
+        // true/false/null 같은 고정 리터럴을 검증하며 소비한다.
         private Object parseLiteral(String string, Object object) {
             if (!this.source.startsWith(string, this.index)) {
                 throw this.error("\uc608\uc0c1\ud55c \ub9ac\ud130\ub7f4\uc774 \uc544\ub2d9\ub2c8\ub2e4: " + string);
@@ -1827,12 +1908,14 @@ extends JFrame {
             return object;
         }
 
+        // 토큰 사이 공백은 모두 건너뛴다.
         private void skipWhitespace() {
             while (this.index < this.source.length() && Character.isWhitespace(this.source.charAt(this.index))) {
                 ++this.index;
             }
         }
 
+        // 특정 구분 문자가 와야 하는 위치를 강제한다.
         private void expect(char c) {
             this.skipWhitespace();
             if (this.index >= this.source.length() || this.source.charAt(this.index) != c) {
@@ -1841,21 +1924,26 @@ extends JFrame {
             ++this.index;
         }
 
+        // 현재 위치 문자가 기대값인지 소비 없이 확인한다.
         private boolean peek(char c) {
             return this.index < this.source.length() && this.source.charAt(this.index) == c;
         }
 
+        // 파싱 실패 메시지에 현재 index를 함께 남긴다.
         private IllegalArgumentException error(String string) {
             return new IllegalArgumentException(string + " (index=" + this.index + ")");
         }
     }
 
+    // 선택지 원본 JSON 한 항목을 담는 레코드다.
     private record ChoiceDefinition(String label, String nextSceneId, String effect, String visibility, boolean recordsSuspicion) {
     }
 
+    // JSON pages 배열의 원본 페이지 정의다.
     private record PageDefinition(String text, String speaker, String backgroundImage, String characterImage) {
     }
 
+    // 실제 게임 진행에 쓰는 선택지 런타임 객체다.
     private static class Choice {
         final String label;
         final String nextSceneId;
@@ -1888,9 +1976,11 @@ extends JFrame {
         }
     }
 
+    // 장면 정의를 PageEntry로 풀기 전에 거치는 중간 형식이다.
     private record PageSpec(String text, String speaker, String backgroundImage, String characterImage) {
     }
 
+    // 저장 파일과 GameState 사이를 직렬화/역직렬화하는 중간 DTO다.
     private static class SaveData {
         String playerName = "";
         String currentSceneId = "prologue_arrival";
@@ -1907,9 +1997,11 @@ extends JFrame {
         final List<String> suspectHistory = new ArrayList<String>();
         final Map<String, String> evidenceBoard = new LinkedHashMap<String, String>();
 
+        // 외부에서 필드를 단계적으로 채울 수 있도록 빈 객체로 시작한다.
         private SaveData() {
         }
 
+        // 현재 게임 상태를 파일 저장용 구조로 복사한다.
         static SaveData from(GameState gameState, String string, int n) {
             SaveData saveData = new SaveData();
             saveData.playerName = gameState.playerName;
@@ -1929,6 +2021,7 @@ extends JFrame {
             return saveData;
         }
 
+        // 저장된 값을 GameState에 다시 반영한다.
         void applyTo(GameState gameState) {
             gameState.resetForNewRun();
             gameState.playerName = this.playerName == null ? Main.DEFAULT_PLAYER_NAME : this.playerName;
@@ -1945,9 +2038,13 @@ extends JFrame {
             gameState.evidenceBoard.putAll(this.evidenceBoard);
         }
 
+        // Properties 포맷으로 저장 파일을 쓴다.
         void save(Path path) {
             try {
-                Files.createDirectories(path.getParent(), new FileAttribute[0]);
+                Path path2 = path.getParent();
+                if (path2 != null) {
+                    Files.createDirectories(path2, new FileAttribute[0]);
+                }
                 Properties properties = new Properties();
                 properties.setProperty("playerName", this.playerName == null ? Main.DEFAULT_PLAYER_NAME : this.playerName);
                 properties.setProperty("currentSceneId", this.currentSceneId == null ? "prologue_arrival" : this.currentSceneId);
@@ -1974,6 +2071,7 @@ extends JFrame {
             }
         }
 
+        // 저장 파일이 있으면 읽고, 없거나 실패하면 null을 돌려준다.
         static SaveData load(Path path) {
             Object object;
             if (!Files.exists(path, new LinkOption[0])) {
@@ -2015,6 +2113,7 @@ extends JFrame {
             return (SaveData)object;
         }
 
+        // 구분자(|)로 이어 붙인 문자열을 Set에 풀어 넣는다.
         private static void addAll(String string, Set<String> set) {
             if (string == null || string.isBlank()) {
                 return;
@@ -2025,6 +2124,7 @@ extends JFrame {
             }
         }
 
+        // 구분자(|)로 이어 붙인 문자열을 List 순서대로 복원한다.
         private static void addAll(String string, List<String> list) {
             if (string == null || string.isBlank()) {
                 return;
