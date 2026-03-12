@@ -1,44 +1,96 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.Insets;
+import java.awt.LayoutManager;
+import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.font.FontRenderContext;
+import java.awt.font.LineBreakMeasurer;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextLayout;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.text.AttributedString;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
-import javax.swing.*;
+import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
+import javax.swing.InputMap;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JRootPane;
+import javax.swing.JTextField;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
-import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.LinkedHashSet;
-import java.util.Properties;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
-public class Main extends JFrame {
-    private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?。！？\\n]+[.!?。！？]?|\\n+");
+public class Main
+extends JFrame {
+    private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?\u3002\uff01\uff1f\\n]+[.!?\u3002\uff01\uff1f]?|\\n+");
     private static final String DEFAULT_PLAYER_NAME = "";
     private static final int MAX_PAGE_CHARS = 72;
     private static final int STORY_PANEL_HEIGHT = 196;
     private static final int HUD_SIDE_MARGIN = 18;
     private static final int HUD_BOTTOM_MARGIN = 14;
     private static final int SPEAKER_AREA_HEIGHT = 42;
-    private static final int CONTINUE_AREA_HEIGHT = 24;
+    private static final int CHARACTER_TOP_MARGIN = 20;
+    private static final int STORY_TEXT_TOP_PADDING = 18;
+    private static final int STORY_TEXT_SIDE_PADDING = 18;
+    private static final int STORY_TEXT_BOTTOM_PADDING = 24;
     private static final Path SAVE_PATH = Path.of("out", "save.properties");
-    private static final double MOBILE_ASPECT_RATIO = 9.0 / 16.0;
+    private static final Path SCENES_PATH = Path.of("assets", "scenes.json");
+    private static final double MOBILE_ASPECT_RATIO = 0.5625;
     private static final Color NIGHT = new Color(10, 12, 18);
     private static final Color NIGHT_DEEP = new Color(17, 21, 31);
     private static final Color PANEL = new Color(56, 62, 74);
@@ -49,56 +101,29 @@ public class Main extends JFrame {
     private static final Color ACCENT_GLOW = new Color(118, 128, 154, 42);
     private static final Color BUTTON = new Color(72, 79, 92);
     private static final Color BUTTON_HOVER = new Color(86, 95, 110);
-
-    // 화면은 배경 -> 캐릭터 -> 오버레이(텍스트/선택지) 순서로 겹쳐서 그린다.
-    // titleLabel: 현재 장면 제목
-    private final JLabel titleLabel = new JLabel("", SwingConstants.LEFT);
-    // chapterLabel: 현재 장면의 챕터 표기
-    private final JLabel chapterLabel = new JLabel("", SwingConstants.RIGHT);
-    // backgroundLabel: 배경 이미지를 표시하는 레이어
-    private final JLabel backgroundLabel = new JLabel("", SwingConstants.CENTER);
-    // characterLabel: 캐릭터 이미지를 표시하는 레이어
-    private final JLabel characterLabel = new JLabel("", SwingConstants.CENTER);
-    // scenePanel: 장면의 모든 레이어를 올리는 루트 캔버스
+    private final JLabel titleLabel = new JLabel("", 2);
+    private final JLabel chapterLabel = new JLabel("", 4);
+    private final JLabel backgroundLabel = new JLabel("", 0);
+    private final JLabel characterLabel = new JLabel("", 0);
     private final JPanel scenePanel = new JPanel(null);
-    // overlayPanel: 어두운 그라데이션과 선택지 오버레이를 올리는 레이어
     private final JPanel overlayPanel = new JPanel(new BorderLayout());
-    // hudPanel: 하단 대화 UI 전체를 고정 위치로 담는 패널
     private final JPanel hudPanel = new JPanel(null);
-    // storyArea: 실제 대사/나레이션 글자가 출력되는 텍스트 영역
-    private final JTextArea storyArea = new JTextArea();
-    // continueLabel: NEXT, CHOICE 같은 진행 상태 문구
-    private final JLabel continueLabel = new JLabel("CLICK", SwingConstants.RIGHT);
-    // storyPanel: 텍스트칸 배경과 내부 텍스트를 묶는 하단 카드
-    private final JPanel storyPanel = createStoryPanel();
-    // speakerPanel: 화자 이름 배지를 담는 작은 패널
-    private final JPanel speakerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-    // speakerBadge: 현재 화자 이름을 표시하는 배지
-    private final JLabel speakerBadge = new JLabel(" ", SwingConstants.LEFT);
-    // choiceOverlay: 선택지 창을 화면 위에 띄우는 오버레이
-    private final JPanel choiceOverlay = new JPanel(new GridBagLayout());
-    // choicesPanel: 실제 선택지 버튼 목록이 들어가는 패널
-    private final JPanel choicesPanel = new JPanel(new GridLayout(0, 1, 0, 10));
-    // startOverlay: 시작 화면 카드가 올라가는 레이어
+    private final StoryTextPanel storyArea = new StoryTextPanel();
+    private final JPanel storyPanel = this.createStoryPanel();
+    private final JPanel speakerPanel = new JPanel(new FlowLayout(0, 0, 0));
+    private final JLabel speakerBadge = new JLabel(" ", 2);
+    private final JPanel choiceOverlay = new JPanel(null);
+    private final JPanel choicesPanel = new JPanel();
     private final JPanel startOverlay = new JPanel(new GridBagLayout());
-    // galleryOverlay: 엔딩 모음 화면 카드가 올라가는 레이어
     private final JPanel galleryOverlay = new JPanel(new GridBagLayout());
-    // nameField: 플레이어 이름 입력 칸
     private final JTextField nameField = new JTextField("");
-    // galleryListPanel: 엔딩 목록 아이템을 세로로 쌓아두는 패널
     private final JPanel galleryListPanel = new JPanel();
-    // imageCache: 이미 읽은 이미지를 메모리에 보관해 다시 로드하지 않게 함
-    private final Map<String, BufferedImage> imageCache = new LinkedHashMap<>();
-    // continueGameButton: 저장 데이터가 있을 때만 활성화되는 이어하기 버튼
+    private final Map<String, BufferedImage> imageCache = new LinkedHashMap<String, BufferedImage>();
     private JButton continueGameButton;
-
-    // 모든 장면은 문자열 id로 관리한다. 선택지는 nextSceneId로 다음 장면을 가리킨다.
-    private final Map<String, Scene> scenes = new LinkedHashMap<>();
+    private final Map<String, Scene> scenes = new LinkedHashMap<String, Scene>();
     private final GameState state = new GameState();
-    private final Map<String, String> endingTitles = new LinkedHashMap<>();
-    private final Map<String, String> endingDescriptions = new LinkedHashMap<>();
-    private final Set<String> narrationCharacterHiddenScenes = Set.of("prologue_principal");
-
+    private final Map<String, String> endingTitles = new LinkedHashMap<String, String>();
+    private final Map<String, String> endingDescriptions = new LinkedHashMap<String, String>();
     private Scene currentScene;
     private Timer dialogueTimer;
     private boolean adjustingFrame;
@@ -111,1782 +136,1381 @@ public class Main extends JFrame {
     private String activeBackgroundImage = "";
     private String activeCharacterImage = "";
     private int textSpeedMs = 18;
+    private Dimension lastFrameSize = new Dimension(450, 800);
 
     public Main() {
-        setTitle("월야고등학교: 침묵의 기록");
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setSize(450, 800);
-        setMinimumSize(new Dimension(360, 640));
-        setLocationRelativeTo(null);
+        this.setTitle("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50: \uce68\ubb35\uc758 \uae30\ub85d");
+        this.setDefaultCloseOperation(3);
+        this.setSize(450, 800);
+        this.setMinimumSize(new Dimension(360, 640));
+        this.setLocationRelativeTo(null);
+        JPanel jPanel = new JPanel(new BorderLayout(0, 8));
+        jPanel.setBackground(NIGHT);
+        jPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        this.setContentPane(jPanel);
+        JPanel jPanel2 = this.createTopBar();
+        this.titleLabel.setForeground(new Color(220, 225, 233));
+        this.titleLabel.setFont(new Font("Malgun Gothic", 1, 24));
+        this.titleLabel.setBorder(new EmptyBorder(6, 8, 10, 8));
+        this.chapterLabel.setForeground(new Color(160, 171, 192));
+        this.chapterLabel.setFont(new Font("Malgun Gothic", 0, 12));
+        this.chapterLabel.setBorder(new EmptyBorder(10, 8, 10, 8));
+        jPanel2.add((Component)this.titleLabel, "West");
+        jPanel2.add((Component)this.chapterLabel, "East");
+        jPanel.add((Component)jPanel2, "North");
+        this.scenePanel.setOpaque(false);
+        jPanel.add((Component)this.scenePanel, "Center");
+        this.backgroundLabel.setOpaque(true);
+        this.backgroundLabel.setBackground(new Color(12, 16, 24));
+        this.backgroundLabel.setForeground(new Color(170, 178, 194));
+        this.backgroundLabel.setFont(new Font("Malgun Gothic", 0, 18));
+        this.backgroundLabel.setHorizontalAlignment(0);
+        this.backgroundLabel.setVerticalAlignment(0);
+        this.scenePanel.add(this.backgroundLabel);
+        this.characterLabel.setOpaque(false);
+        this.characterLabel.setHorizontalAlignment(0);
+        this.characterLabel.setVerticalAlignment(0);
+        this.characterLabel.setForeground(new Color(240, 244, 250));
+        this.characterLabel.setFont(new Font("Malgun Gothic", 1, 16));
+        this.scenePanel.add(this.characterLabel);
+        this.overlayPanel.setOpaque(false);
+        this.scenePanel.add(this.overlayPanel);
+        this.storyArea.setFont(new Font("Malgun Gothic", 0, 18));
+        this.storyArea.setForeground(new Color(229, 233, 239));
+        this.storyArea.setOpaque(false);
+        this.storyArea.setBorder(new EmptyBorder(18, 18, 24, 18));
+        this.storyArea.addMouseListener(new MouseAdapter(){
 
-        JPanel root = new JPanel(new BorderLayout(0, 8));
-        root.setBackground(NIGHT);
-        root.setBorder(new EmptyBorder(10, 10, 10, 10));
-        setContentPane(root);
-
-        JPanel topBar = createTopBar();
-        titleLabel.setForeground(new Color(220, 225, 233));
-        titleLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
-        titleLabel.setBorder(new EmptyBorder(6, 8, 10, 8));
-        chapterLabel.setForeground(new Color(160, 171, 192));
-        chapterLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
-        chapterLabel.setBorder(new EmptyBorder(10, 8, 10, 8));
-        topBar.add(titleLabel, BorderLayout.WEST);
-        topBar.add(chapterLabel, BorderLayout.EAST);
-        root.add(topBar, BorderLayout.NORTH);
-
-        scenePanel.setOpaque(false);
-        root.add(scenePanel, BorderLayout.CENTER);
-
-        backgroundLabel.setOpaque(true);
-        backgroundLabel.setBackground(new Color(12, 16, 24));
-        backgroundLabel.setForeground(new Color(170, 178, 194));
-        backgroundLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 18));
-        backgroundLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        backgroundLabel.setVerticalAlignment(SwingConstants.CENTER);
-        scenePanel.add(backgroundLabel);
-
-        characterLabel.setOpaque(false);
-        characterLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        characterLabel.setVerticalAlignment(SwingConstants.BOTTOM);
-        characterLabel.setForeground(new Color(240, 244, 250));
-        characterLabel.setFont(new Font("Malgun Gothic", Font.BOLD, 16));
-        scenePanel.add(characterLabel);
-
-        overlayPanel.setOpaque(false);
-        scenePanel.add(overlayPanel);
-
-        storyArea.setEditable(false);
-        storyArea.setLineWrap(true);
-        storyArea.setWrapStyleWord(true);
-        storyArea.setFont(new Font("Malgun Gothic", Font.PLAIN, 18));
-        storyArea.setForeground(new Color(229, 233, 239));
-        storyArea.setBackground(new Color(0, 0, 0, 0));
-        storyArea.setOpaque(false);
-        storyArea.setBorder(new EmptyBorder(16, 18, 8, 18));
-        storyArea.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                advanceStory();
+            public void mouseClicked(MouseEvent mouseEvent) {
+                Main.this.advanceStory();
             }
         });
+        this.speakerBadge.setFont(new Font("Malgun Gothic", 1, 14));
+        this.speakerBadge.setForeground(new Color(238, 241, 246));
+        this.speakerBadge.setOpaque(true);
+        this.speakerBadge.setBackground(new Color(88, 96, 116));
+        this.speakerBadge.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(ACCENT_SOFT, 1), BorderFactory.createLineBorder(new Color(255, 255, 255, 20), 1)), new EmptyBorder(7, 12, 7, 12)));
+        this.speakerPanel.setOpaque(false);
+        this.speakerPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
+        this.speakerPanel.add(this.speakerBadge);
+        this.scenePanel.add(this.speakerPanel);
+        this.storyPanel.setOpaque(false);
+        this.storyPanel.setLayout(null);
+        this.storyPanel.setPreferredSize(new Dimension(0, 196));
+        this.storyPanel.setMinimumSize(new Dimension(0, 196));
+        this.storyPanel.add(this.storyArea);
+        this.storyPanel.addMouseListener(new MouseAdapter(){
 
-        continueLabel.setForeground(ACCENT_SOFT);
-        continueLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 11));
-        continueLabel.setBorder(new EmptyBorder(0, 0, 4, 14));
-        continueLabel.setOpaque(false);
-
-        speakerBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 14));
-        speakerBadge.setForeground(new Color(238, 241, 246));
-        speakerBadge.setOpaque(true);
-        speakerBadge.setBackground(new Color(88, 96, 116));
-        speakerBadge.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(ACCENT_SOFT, 1),
-                        BorderFactory.createLineBorder(new Color(255, 255, 255, 20), 1)
-                ),
-                new EmptyBorder(7, 12, 7, 12)
-        ));
-        speakerPanel.setOpaque(false);
-        speakerPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
-        speakerPanel.add(speakerBadge);
-        scenePanel.add(speakerPanel);
-
-        storyPanel.setOpaque(false);
-        storyPanel.setLayout(null);
-        storyPanel.setPreferredSize(new Dimension(0, STORY_PANEL_HEIGHT));
-        storyPanel.setMinimumSize(new Dimension(0, STORY_PANEL_HEIGHT));
-        storyPanel.add(storyArea);
-        storyPanel.add(continueLabel);
-        storyPanel.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                advanceStory();
+            public void mouseClicked(MouseEvent mouseEvent) {
+                Main.this.advanceStory();
             }
         });
+        this.hudPanel.setOpaque(false);
+        this.hudPanel.add(this.storyPanel);
+        this.choiceOverlay.setOpaque(false);
+        this.choicesPanel.setOpaque(true);
+        this.choicesPanel.setLayout(new GridLayout(0, 2, 12, 12));
+        this.choicesPanel.setBackground(PANEL);
+        this.choicesPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(PANEL_EDGE, 1), BorderFactory.createLineBorder(new Color(255, 255, 255, 28), 1)), new EmptyBorder(16, 16, 16, 16)));
+        this.choiceOverlay.add(this.choicesPanel);
+        this.choiceOverlay.setVisible(false);
+        this.startOverlay.setOpaque(false);
+        this.startOverlay.add(this.createStartPanel());
+        this.galleryOverlay.setOpaque(false);
+        this.galleryOverlay.add(this.createGalleryPanel());
+        this.galleryOverlay.setVisible(false);
+        this.overlayPanel.add((Component)this.createBottomShade(), "Center");
+        this.overlayPanel.add((Component)this.choiceOverlay, "Center");
+        this.scenePanel.add(this.hudPanel);
+        this.scenePanel.add(this.startOverlay);
+        this.scenePanel.add(this.galleryOverlay);
+        this.initEndingMetadata();
+        this.initScenes();
+        this.resetState();
+        this.loadSaveData();
+        this.installKeyBindings();
+        this.addComponentListener(new ComponentAdapter(){
 
-        hudPanel.setOpaque(false);
-        hudPanel.add(storyPanel);
-
-        choiceOverlay.setOpaque(false);
-        choicesPanel.setOpaque(true);
-        choicesPanel.setBackground(PANEL);
-        choicesPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(PANEL_EDGE, 1),
-                        BorderFactory.createLineBorder(new Color(255, 255, 255, 28), 1)
-                ),
-                new EmptyBorder(16, 16, 16, 16)
-        ));
-        choiceOverlay.add(choicesPanel);
-        choiceOverlay.setVisible(false);
-
-        startOverlay.setOpaque(false);
-        startOverlay.add(createStartPanel());
-
-        galleryOverlay.setOpaque(false);
-        galleryOverlay.add(createGalleryPanel());
-        galleryOverlay.setVisible(false);
-
-        overlayPanel.add(createBottomShade(), BorderLayout.CENTER);
-        overlayPanel.add(choiceOverlay, BorderLayout.CENTER);
-        scenePanel.add(hudPanel);
-        scenePanel.add(startOverlay);
-        scenePanel.add(galleryOverlay);
-
-        initEndingMetadata();
-        initScenes();
-        resetState();
-        loadSaveData();
-        installKeyBindings();
-
-        addComponentListener(new ComponentAdapter() {
             @Override
-            public void componentResized(ComponentEvent e) {
-                enforceMobileAspectRatio();
-                layoutSceneLayers();
-                refreshImages();
+            public void componentResized(ComponentEvent componentEvent) {
+                Main.this.enforceMobileAspectRatio();
+                Main.this.layoutSceneLayers();
+                Main.this.refreshImages();
             }
         });
-
-        showStartScreen();
+        this.showStartScreen();
         SwingUtilities.invokeLater(() -> {
-            layoutSceneLayers();
-            refreshImages();
-            scenePanel.repaint();
+            this.layoutSceneLayers();
+            this.refreshImages();
+            this.scenePanel.repaint();
         });
     }
 
     private JComponent createBottomShade() {
-        return new JPanel() {
+        return new JPanel(){
+
             @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                GradientPaint paint = new GradientPaint(0, 0, new Color(5, 7, 10, 0), 0, getHeight(), new Color(8, 10, 16, 210));
-                g2.setPaint(paint);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setPaint(new GradientPaint(0, getHeight() / 3f, new Color(0, 0, 0, 0), 0, getHeight(), ACCENT_GLOW));
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.dispose();
+            protected void paintComponent(Graphics graphics) {
+                super.paintComponent(graphics);
+                Graphics2D graphics2D = (Graphics2D)graphics.create();
+                GradientPaint gradientPaint = new GradientPaint(0.0f, 0.0f, new Color(5, 7, 10, 0), 0.0f, this.getHeight(), new Color(8, 10, 16, 210));
+                graphics2D.setPaint(gradientPaint);
+                graphics2D.fillRect(0, 0, this.getWidth(), this.getHeight());
+                graphics2D.setPaint(new GradientPaint(0.0f, (float)this.getHeight() / 3.0f, new Color(0, 0, 0, 0), 0.0f, this.getHeight(), ACCENT_GLOW));
+                graphics2D.fillRect(0, 0, this.getWidth(), this.getHeight());
+                graphics2D.dispose();
             }
         };
     }
 
     private JPanel createTopBar() {
-        JPanel panel = new JPanel(new BorderLayout()) {
+        JPanel jPanel = new JPanel(new BorderLayout()){
+
             @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(new Color(52, 58, 69, 236));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
-                g2.setColor(new Color(198, 206, 220, 70));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 18, 18);
-                g2.dispose();
+            protected void paintComponent(Graphics graphics) {
+                super.paintComponent(graphics);
+                Graphics2D graphics2D = (Graphics2D)graphics.create();
+                graphics2D.setColor(new Color(52, 58, 69, 236));
+                graphics2D.fillRoundRect(0, 0, this.getWidth(), this.getHeight(), 18, 18);
+                graphics2D.setColor(new Color(198, 206, 220, 70));
+                graphics2D.drawRoundRect(0, 0, this.getWidth() - 1, this.getHeight() - 1, 18, 18);
+                graphics2D.dispose();
             }
         };
-        panel.setOpaque(false);
-        return panel;
+        jPanel.setOpaque(false);
+        return jPanel;
     }
 
     private JPanel createStoryPanel() {
-        return new JPanel(new BorderLayout(0, 8)) {
+        return new JPanel(new BorderLayout(0, 8)){
+
             @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int shadowInsetX = 6;
-                int shadowInsetTop = 6;
-                int shadowInsetBottom = 6;
-                int cardWidth = Math.max(1, getWidth() - (shadowInsetX * 2));
-                int shadowHeight = Math.max(1, getHeight() - shadowInsetTop - shadowInsetBottom);
-                g2.setColor(new Color(0, 0, 0, 46));
-                g2.fillRoundRect(shadowInsetX, shadowInsetTop, cardWidth, shadowHeight, 24, 24);
-                g2.setColor(new Color(52, 58, 69, 236));
-                g2.fillRoundRect(0, 0, Math.max(1, getWidth() - 1), Math.max(1, getHeight() - 1), 24, 24);
-                g2.setColor(new Color(198, 206, 220, 70));
-                g2.drawRoundRect(1, 1, Math.max(1, getWidth() - 3), Math.max(1, getHeight() - 3), 22, 22);
-                g2.setColor(new Color(116, 125, 144, 150));
-                int dividerY = Math.max(12, getHeight() - 18);
-                g2.drawLine(20, dividerY, Math.max(20, getWidth() - 20), dividerY);
-                g2.dispose();
+            protected void paintComponent(Graphics graphics) {
+                super.paintComponent(graphics);
+                Graphics2D graphics2D = (Graphics2D)graphics.create();
+                graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int n = 6;
+                int n2 = 6;
+                int n3 = 6;
+                int n4 = Math.max(1, this.getWidth() - n * 2);
+                int n5 = Math.max(1, this.getHeight() - n2 - n3);
+                graphics2D.setColor(new Color(0, 0, 0, 46));
+                graphics2D.fillRoundRect(n, n2, n4, n5, 24, 24);
+                graphics2D.setColor(new Color(52, 58, 69, 236));
+                graphics2D.fillRoundRect(0, 0, Math.max(1, this.getWidth() - 1), Math.max(1, this.getHeight() - 1), 24, 24);
+                graphics2D.setColor(new Color(198, 206, 220, 70));
+                graphics2D.drawRoundRect(1, 1, Math.max(1, this.getWidth() - 3), Math.max(1, this.getHeight() - 3), 22, 22);
+                graphics2D.dispose();
             }
         };
     }
 
     private JPanel createStartPanel() {
-        JPanel panel = createOverlayCard(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(22, 22, 22, 22));
-        panel.setPreferredSize(new Dimension(320, 424));
-        JPanel content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setOpaque(false);
-        content.setPreferredSize(new Dimension(240, 286));
-
-        JLabel title = new JLabel("월야고등학교");
-        title.setAlignmentX(Component.CENTER_ALIGNMENT);
-        title.setHorizontalAlignment(SwingConstants.CENTER);
-        title.setFont(new Font("Malgun Gothic", Font.BOLD, 24));
-        title.setForeground(new Color(212, 218, 228));
-
-        JLabel prompt = new JLabel("이름");
-        prompt.setAlignmentX(Component.CENTER_ALIGNMENT);
-        prompt.setHorizontalAlignment(SwingConstants.CENTER);
-        prompt.setFont(new Font("Malgun Gothic", Font.BOLD, 13));
-        prompt.setForeground(ACCENT);
-        prompt.setBorder(new EmptyBorder(12, 0, 6, 0));
-
-        nameField.setMaximumSize(new Dimension(240, 36));
-        nameField.setPreferredSize(new Dimension(240, 36));
-        nameField.setFont(new Font("Malgun Gothic", Font.PLAIN, 16));
-        nameField.setHorizontalAlignment(JTextField.CENTER);
-        nameField.setBackground(new Color(73, 80, 93));
-        nameField.setForeground(new Color(232, 236, 242));
-        nameField.setCaretColor(ACCENT);
-        nameField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(110, 120, 138), 1),
-                new EmptyBorder(8, 10, 8, 10)
-        ));
-        ((AbstractDocument) nameField.getDocument()).setDocumentFilter(new LengthFilter(5));
-        nameField.addActionListener(e -> startGame());
-
-        JButton startButton = createMenuButton("시작", this::startGame);
-        continueGameButton = createMenuButton("이어하기", this::continueGame);
-        JButton endingButton = createMenuButton("엔딩 모음", this::showEndingGallery);
-        JButton clearButton = createMenuButton("기록 삭제", this::clearSaveData);
-        continueGameButton.setEnabled(Files.exists(SAVE_PATH));
-
-        content.add(title);
-        content.add(prompt);
-        content.add(nameField);
-        content.add(Box.createVerticalStrut(14));
-        content.add(startButton);
-        content.add(Box.createVerticalStrut(8));
-        content.add(continueGameButton);
-        content.add(Box.createVerticalStrut(8));
-        content.add(endingButton);
-        content.add(Box.createVerticalStrut(8));
-        content.add(clearButton);
-        panel.add(content);
-        return panel;
+        JPanel jPanel = this.createOverlayCard(new GridBagLayout());
+        jPanel.setBorder(new EmptyBorder(22, 22, 22, 22));
+        jPanel.setPreferredSize(new Dimension(320, 424));
+        JPanel jPanel2 = new JPanel();
+        jPanel2.setLayout(new BoxLayout(jPanel2, 1));
+        jPanel2.setOpaque(false);
+        jPanel2.setPreferredSize(new Dimension(240, 286));
+        JLabel jLabel = new JLabel("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50");
+        jLabel.setAlignmentX(0.5f);
+        jLabel.setHorizontalAlignment(0);
+        jLabel.setFont(new Font("Malgun Gothic", 1, 24));
+        jLabel.setForeground(new Color(212, 218, 228));
+        JLabel jLabel2 = new JLabel("\uc774\ub984");
+        jLabel2.setAlignmentX(0.5f);
+        jLabel2.setHorizontalAlignment(0);
+        jLabel2.setFont(new Font("Malgun Gothic", 1, 13));
+        jLabel2.setForeground(ACCENT);
+        jLabel2.setBorder(new EmptyBorder(12, 0, 6, 0));
+        this.nameField.setMaximumSize(new Dimension(240, 36));
+        this.nameField.setPreferredSize(new Dimension(240, 36));
+        this.nameField.setFont(new Font("Malgun Gothic", 0, 16));
+        this.nameField.setHorizontalAlignment(0);
+        this.nameField.setBackground(new Color(73, 80, 93));
+        this.nameField.setForeground(new Color(232, 236, 242));
+        this.nameField.setCaretColor(ACCENT);
+        this.nameField.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(110, 120, 138), 1), new EmptyBorder(8, 10, 8, 10)));
+        ((AbstractDocument)this.nameField.getDocument()).setDocumentFilter(new LengthFilter(5));
+        this.nameField.addActionListener(actionEvent -> this.startGame());
+        JButton jButton = this.createMenuButton("\uc2dc\uc791", this::startGame);
+        this.continueGameButton = this.createMenuButton("\uc774\uc5b4\ud558\uae30", this::continueGame);
+        JButton jButton2 = this.createMenuButton("\uc5d4\ub529 \ubaa8\uc74c", this::showEndingGallery);
+        JButton jButton3 = this.createMenuButton("\uae30\ub85d \uc0ad\uc81c", this::clearSaveData);
+        this.continueGameButton.setEnabled(Files.exists(SAVE_PATH, new LinkOption[0]));
+        jPanel2.add(jLabel);
+        jPanel2.add(jLabel2);
+        jPanel2.add(this.nameField);
+        jPanel2.add(Box.createVerticalStrut(14));
+        jPanel2.add(jButton);
+        jPanel2.add(Box.createVerticalStrut(8));
+        jPanel2.add(this.continueGameButton);
+        jPanel2.add(Box.createVerticalStrut(8));
+        jPanel2.add(jButton2);
+        jPanel2.add(Box.createVerticalStrut(8));
+        jPanel2.add(jButton3);
+        jPanel.add(jPanel2);
+        return jPanel;
     }
 
     private JPanel createGalleryPanel() {
-        JPanel panel = createOverlayCard(new BorderLayout(0, 14));
-        panel.setBorder(new EmptyBorder(22, 22, 22, 22));
-        panel.setPreferredSize(new Dimension(320, 460));
-
-        JLabel title = new JLabel("엔딩 모음");
-        title.setFont(new Font("Malgun Gothic", Font.BOLD, 21));
-        title.setForeground(new Color(216, 221, 230));
-        title.setHorizontalAlignment(SwingConstants.CENTER);
-        panel.add(title, BorderLayout.NORTH);
-
-        galleryListPanel.setLayout(new BoxLayout(galleryListPanel, BoxLayout.Y_AXIS));
-        galleryListPanel.setOpaque(false);
-        panel.add(galleryListPanel, BorderLayout.CENTER);
-
-        JButton backButton = createMenuButton("돌아가기", this::showStartScreen);
-        panel.add(backButton, BorderLayout.SOUTH);
-        return panel;
+        JPanel jPanel = this.createOverlayCard(new BorderLayout(0, 14));
+        jPanel.setBorder(new EmptyBorder(22, 22, 22, 22));
+        jPanel.setPreferredSize(new Dimension(320, 460));
+        JLabel jLabel = new JLabel("\uc5d4\ub529 \ubaa8\uc74c");
+        jLabel.setFont(new Font("Malgun Gothic", 1, 21));
+        jLabel.setForeground(new Color(216, 221, 230));
+        jLabel.setHorizontalAlignment(0);
+        jPanel.add((Component)jLabel, "North");
+        this.galleryListPanel.setLayout(new BoxLayout(this.galleryListPanel, 1));
+        this.galleryListPanel.setOpaque(false);
+        jPanel.add((Component)this.galleryListPanel, "Center");
+        JButton jButton = this.createMenuButton("\ub3cc\uc544\uac00\uae30", this::showStartScreen);
+        jPanel.add((Component)jButton, "South");
+        return jPanel;
     }
 
-    private JButton createMenuButton(String label, Runnable action) {
-        JButton button = new JButton(label);
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setHorizontalAlignment(SwingConstants.CENTER);
-        button.setFocusPainted(false);
-        button.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
-        button.setBackground(BUTTON);
-        button.setForeground(new Color(233, 236, 242));
-        button.setBorder(choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
-        button.setOpaque(true);
-        button.setContentAreaFilled(true);
-        button.setMaximumSize(new Dimension(240, 42));
-        button.setPreferredSize(new Dimension(240, 42));
-        button.addMouseListener(new MouseAdapter() {
+    private JButton createMenuButton(String string, Runnable runnable) {
+        final JButton jButton = new JButton(string);
+        jButton.setAlignmentX(0.5f);
+        jButton.setHorizontalAlignment(0);
+        jButton.setFocusPainted(false);
+        jButton.setFont(new Font("Malgun Gothic", 1, 15));
+        jButton.setBackground(BUTTON);
+        jButton.setForeground(new Color(233, 236, 242));
+        jButton.setBorder(this.choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
+        jButton.setOpaque(true);
+        jButton.setContentAreaFilled(true);
+        jButton.setMaximumSize(new Dimension(240, 42));
+        jButton.setPreferredSize(new Dimension(240, 42));
+        jButton.addMouseListener(new MouseAdapter(){
+
             @Override
-            public void mouseEntered(MouseEvent e) {
-                button.setBackground(BUTTON_HOVER);
-                button.setBorder(choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
+            public void mouseEntered(MouseEvent mouseEvent) {
+                jButton.setBackground(BUTTON_HOVER);
+                jButton.setBorder(Main.this.choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
             }
 
             @Override
-            public void mouseExited(MouseEvent e) {
-                button.setBackground(BUTTON);
-                button.setBorder(choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
+            public void mouseExited(MouseEvent mouseEvent) {
+                jButton.setBackground(BUTTON);
+                jButton.setBorder(Main.this.choiceBorder(new Color(108, 118, 136), new Color(255, 255, 255, 24)));
             }
         });
-        button.addActionListener(e -> action.run());
-        return button;
+        jButton.addActionListener(actionEvent -> runnable.run());
+        return jButton;
     }
 
-    private JPanel createOverlayCard(LayoutManager layout) {
-        JPanel panel = new JPanel(layout) {
+    private JPanel createOverlayCard(LayoutManager layoutManager) {
+        JPanel jPanel = new JPanel(layoutManager){
+
             @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0, 0, 0, 54));
-                g2.fillRoundRect(6, 8, getWidth() - 12, getHeight() - 8, 24, 24);
-                g2.setPaint(new GradientPaint(0, 0, new Color(44, 49, 60, 242), 0, getHeight(), new Color(55, 61, 73, 238)));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 26, 26);
-                g2.setColor(new Color(192, 199, 211, 60));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 26, 26);
-                g2.setColor(new Color(108, 118, 136, 130));
-                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 24, 24);
-                g2.dispose();
-                super.paintComponent(g);
+            protected void paintComponent(Graphics graphics) {
+                Graphics2D graphics2D = (Graphics2D)graphics.create();
+                graphics2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                graphics2D.setColor(new Color(0, 0, 0, 54));
+                graphics2D.fillRoundRect(6, 8, this.getWidth() - 12, this.getHeight() - 8, 24, 24);
+                graphics2D.setPaint(new GradientPaint(0.0f, 0.0f, new Color(44, 49, 60, 242), 0.0f, this.getHeight(), new Color(55, 61, 73, 238)));
+                graphics2D.fillRoundRect(0, 0, this.getWidth(), this.getHeight(), 26, 26);
+                graphics2D.setColor(new Color(192, 199, 211, 60));
+                graphics2D.drawRoundRect(0, 0, this.getWidth() - 1, this.getHeight() - 1, 26, 26);
+                graphics2D.setColor(new Color(108, 118, 136, 130));
+                graphics2D.drawRoundRect(1, 1, this.getWidth() - 3, this.getHeight() - 3, 24, 24);
+                graphics2D.dispose();
+                super.paintComponent(graphics);
             }
         };
-        panel.setOpaque(false);
-        return panel;
+        jPanel.setOpaque(false);
+        return jPanel;
     }
 
     private void initEndingMetadata() {
-        endingTitles.put("ending_true", "기록된 진실");
-        endingTitles.put("ending_wrong_accusation", "희생양");
-        endingTitles.put("ending_silence", "미완의 보고서");
-
-        endingDescriptions.put("ending_true", "무리한 촬영과 안전 부재가 만든 연속 사고를 밝혀낸 결말");
-        endingDescriptions.put("ending_wrong_accusation", "김현진에게 죄를 뒤집어씌우고 구조적 원인을 놓친 결말");
-        endingDescriptions.put("ending_silence", "진실 직전에서 멈춰 프로젝트의 책임만 흐려진 결말");
+        this.endingTitles.put("ending_true", "\uae30\ub85d\ub41c \uc9c4\uc2e4");
+        this.endingTitles.put("ending_wrong_accusation", "\ud76c\uc0dd\uc591");
+        this.endingTitles.put("ending_silence", "\ubbf8\uc644\uc758 \ubcf4\uace0\uc11c");
+        this.endingDescriptions.put("ending_true", "\ubb34\ub9ac\ud55c \ucd2c\uc601\uacfc \uc548\uc804 \ubd80\uc7ac\uac00 \ub9cc\ub4e0 \uc5f0\uc18d \uc0ac\uace0\ub97c \ubc1d\ud600\ub0b8 \uacb0\ub9d0");
+        this.endingDescriptions.put("ending_wrong_accusation", "\uae40\ud604\uc9c4\uc5d0\uac8c \uc8c4\ub97c \ub4a4\uc9d1\uc5b4\uc50c\uc6b0\uace0 \uad6c\uc870\uc801 \uc6d0\uc778\uc744 \ub193\uce5c \uacb0\ub9d0");
+        this.endingDescriptions.put("ending_silence", "\uc9c4\uc2e4 \uc9c1\uc804\uc5d0\uc11c \uba48\ucdb0 \ud504\ub85c\uc81d\ud2b8\uc758 \ucc45\uc784\ub9cc \ud750\ub824\uc9c4 \uacb0\ub9d0");
     }
 
     private void installKeyBindings() {
-        JRootPane rootPane = getRootPane();
-        InputMap inputMap = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-        ActionMap actionMap = rootPane.getActionMap();
+        JRootPane jRootPane = this.getRootPane();
+        InputMap inputMap = jRootPane.getInputMap(2);
+        ActionMap actionMap = jRootPane.getActionMap();
         inputMap.put(KeyStroke.getKeyStroke("SPACE"), "advance-story");
-        actionMap.put("advance-story", new AbstractAction() {
+        actionMap.put("advance-story", new AbstractAction(){
+
             @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                if (startOverlay.isVisible() || galleryOverlay.isVisible()) {
-                    return;
-                }
-                advanceStory();
+            public void actionPerformed(ActionEvent actionEvent) {
+                Main.this.advanceStory();
             }
         });
     }
 
     private void initScenes() {
-        // 게임의 실제 스토리 데이터가 여기 들어 있다.
-        // scenes.put("장면ID", new Scene(...)) 형식으로 장면을 추가하면 된다.
-        scenes.put("prologue_arrival", new Scene(
-                "월야고등학교 정문",
-                "Chapter 1  프롤로그",
-                """
-                월야고등학교에서는 전국 청소년 UCC 공모전을 위해 프로젝트 팀이 꾸려졌다.
-                지도교사 양지영 아래에서 학생들은 기획, 촬영, 음악, 장치 제작, 수중 촬영 역할을 나눠 맡았다.
-                그러나 촬영 기간 동안 음악실, 과학실, 수영장에서 연달아 세 번의 사고가 발생했고, 학교는 모두 사고로 처리했다.
-                """,
-                "교장",
-                "공모전 준비 팀에서만 세 건의 사망 사고가 났습니다. 공식 기록은 사고지만, 학생들은 누군가 팀을 노렸다고 믿고 있어요.",
-                "bg_school_gate_night.png",
-                "ch_principal.png",
-                List.of(new Choice("프로젝트 기록을 확인한다", "prologue_principal")),
-                null
-        ));
+        this.scenes.clear();
+        for (SceneDefinition sceneDefinition : this.loadSceneDefinitions()) {
+            this.validateImageReference(sceneDefinition.id, "backgroundImage", sceneDefinition.backgroundImage);
+            this.validateImageReference(sceneDefinition.id, "characterImage", sceneDefinition.characterImage);
+            this.validatePageDefinitions(sceneDefinition);
+            this.scenes.put(sceneDefinition.id, new Scene(sceneDefinition.title, sceneDefinition.chapter, sceneDefinition.narration, sceneDefinition.speaker, sceneDefinition.dialogue, sceneDefinition.backgroundImage, sceneDefinition.characterImage, this.buildPageSpecs(sceneDefinition.pages), this.buildChoices(sceneDefinition.choices), this.buildSceneOnEnter(sceneDefinition.onEnter)));
+        }
+    }
 
-        scenes.put("prologue_principal", new Scene(
-                "프로젝트 개요",
-                "Chapter 1  프롤로그",
-                """
-                팀의 주제는 '청소년의 도전과 성장'이었다.
-                양지영은 전체 연출을, 방송부 김태형은 촬영과 장비를, 학생회 김현진은 일정과 운영을 맡았다.
-                음악부 주다영, 과학부 한승준, 수영부 김준영, 체육부 장훈은 각자의 장면을 준비하며 촬영을 이어 갔다.
-                """,
-                "플레이어",
-                "사건은 서로 다른 장소에서 일어났지만, 출발점은 같은 프로젝트 안에 있다.",
-                "bg_archive_room.png",
-                "ch_player.png",
-                List.of(new Choice("양지영에게 당시 상황을 듣는다", "prologue_nurse")),
-                null
-        ));
+    private List<SceneDefinition> loadSceneDefinitions() {
+        try {
+            String string = Files.readString(SCENES_PATH, StandardCharsets.UTF_8);
+            Object object = new SimpleJsonParser(string).parse();
+            List<Object> list = this.requireList(object, "scenes root");
+            ArrayList<SceneDefinition> arrayList = new ArrayList<SceneDefinition>();
+            for (Object object2 : list) {
+                arrayList.add(this.parseSceneDefinition(this.requireMap(object2, "scene")));
+            }
+            return arrayList;
+        }
+        catch (IOException iOException) {
+            throw new IllegalStateException("\uc7a5\uba74 JSON\uc744 \uc77d\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4: " + String.valueOf(SCENES_PATH), iOException);
+        }
+    }
 
-        scenes.put("prologue_nurse", new Scene(
-                "양지영의 증언",
-                "Chapter 1  프롤로그",
-                """
-                양지영은 촬영이 갈수록 무리해졌다고 말한다.
-                공모전 마감이 다가오자 재촬영과 테스트가 겹쳤고, 학생들은 안전 확인보다 결과를 먼저 챙기기 시작했다.
-                그 와중에 일정 관리 담당이던 김현진은 여러 차례 촬영 중단을 말했지만, 사건 뒤에는 오히려 가장 많이 의심받는 인물이 되었다.
-                """,
-                "양지영",
-                "현진이는 막으려고 했어요. 그런데 끝내 막지 못했고, 그 죄책감 때문에 더 말을 못 하게 됐죠.",
-                "bg_main_hall_night.png",
-                "ch_yang_jiyeong.png",
-                List.of(new Choice("프로젝트 사고 기록을 조사한다", "prologue_hall")),
-                null
-        ));
+    private SceneDefinition parseSceneDefinition(Map<String, Object> map) {
+        ArrayList<ChoiceDefinition> arrayList = new ArrayList<ChoiceDefinition>();
+        for (Object object2 : this.requireList(map.get("choices"), "choices")) {
+            arrayList.add(this.parseChoiceDefinition(this.requireMap(object2, "choice")));
+        }
+        ArrayList<PageDefinition> arrayList2 = new ArrayList<PageDefinition>();
+        Object object2 = map.get("pages");
+        if (object2 instanceof List) {
+            List list = (List)object2;
+            for (Object e : list) {
+                arrayList2.add(this.parsePageDefinition(this.requireMap(e, "page")));
+            }
+        }
+        return new SceneDefinition(this.readRequiredString(map, "id"), this.readRequiredString(map, "title"), this.readRequiredString(map, "chapter"), this.readRequiredString(map, "narration"), this.readRequiredString(map, "speaker"), this.readRequiredString(map, "dialogue"), this.readRequiredString(map, "backgroundImage"), this.readRequiredString(map, "characterImage"), this.readOptionalString(map, "onEnter"), arrayList2, arrayList);
+    }
 
-        scenes.put("prologue_hall", new Scene(
-                "사고 기록 복도",
-                "Chapter 1  프롤로그",
-                """
-                학교가 정리한 자료에는 세 사고가 따로 적혀 있다.
-                하지만 장소만 다를 뿐 모두 촬영 준비 중이었고, 김현진과 장비 기록, 일정표가 늘 근처에 남아 있다.
-                공통점은 너무 선명해서 누군가를 범인으로 상상하기 쉽게 만든다.
-                """,
-                "플레이어",
-                "같은 팀, 같은 마감, 같은 조급함. 연결점이 많다는 사실이 곧 살인의 증거는 아니다.",
-                "bg_main_hall_night.png",
-                "ch_kim_junyeong.png",
-                List.of(new Choice("사건 정리로 간다", "case_hub")),
-                null
-        ));
+    private PageDefinition parsePageDefinition(Map<String, Object> map) {
+        return new PageDefinition(this.readRequiredString(map, "text"), this.readOptionalString(map, "speaker"), this.readOptionalString(map, "backgroundImage"), this.readOptionalString(map, "characterImage"));
+    }
 
+    private ChoiceDefinition parseChoiceDefinition(Map<String, Object> map) {
+        return new ChoiceDefinition(this.readRequiredString(map, "label"), this.readRequiredString(map, "nextSceneId"), this.readOptionalString(map, "effect"), this.readOptionalString(map, "visibility"), this.readBoolean(map, "recordsSuspicion"));
+    }
 
-        scenes.put("music_intro", new Scene(
-                "음악실 사고",
-                "Chapter 2  첫 번째 사고",
-                """
-                첫 번째 사고의 피해자는 음악부의 주다영이다.
-                UCC 배경 음악을 다시 녹음하던 밤, 음악실에서 큰 충격음과 함께 사고가 일어났다.
-                학생들은 복도에서 들린 발소리와 김세진의 동선을 엮어 곧바로 개입설을 만들었다.
-                """,
-                "양지영",
-                "다영이는 실수를 만회하겠다며 늦게까지 남아 있었어요. 그래서 더더욱 누가 쫓아간 것처럼 보였죠.",
-                "bg_music_room_night.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("녹음 파일과 현장 기록을 본다", "music_record"),
-                        new Choice("복도 목격담을 확인한다", "music_corridor_witness"),
-                        new Choice("찢어진 악보를 조사한다", "music_torn_sheet"),
-                        new Choice("모은 단서를 정리한다", "music_review", g -> {}, Main::canReviewMusic)
-                ),
-                null
-        ));
+    private List<Choice> buildChoices(List<ChoiceDefinition> list) {
+        ArrayList<Choice> arrayList = new ArrayList<Choice>();
+        for (ChoiceDefinition choiceDefinition : list) {
+            arrayList.add(new Choice(choiceDefinition.label, choiceDefinition.nextSceneId, this.buildChoiceEffect(choiceDefinition.effect), this.buildChoiceVisibility(choiceDefinition.visibility), choiceDefinition.recordsSuspicion));
+        }
+        return List.copyOf(arrayList);
+    }
 
-        scenes.put("music_record", new Scene(
-                "녹음 파일과 체크리스트",
-                "Chapter 2  첫 번째 사고",
-                """
-                녹음 파일에는 피아노 연습, 의자가 밀리는 소리, 잠깐의 정적, 그리고 뒤늦은 충격음이 순서대로 남아 있다.
-                체크리스트에는 야간 단독 연습 금지와 장비 고정 확인이 적혀 있지만, 촬영 분량을 맞추기 위해 생략 표시가 덧붙어 있다.
-                즉 사고는 누군가 숨어들기 전부터 이미 위험한 조건 위에 놓여 있었다.
-                """,
-                "플레이어",
-                "소문보다 순서를 먼저 봐야 한다. 녹음은 누가 있었는지보다 무엇이 먼저 무너졌는지를 말해 준다.",
-                "bg_music_room_close.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("복도 목격담을 확인한다", "music_corridor_witness"),
-                        new Choice("찢어진 악보를 조사한다", "music_torn_sheet"),
-                        new Choice("모은 단서를 정리한다", "music_review", g -> {}, Main::canReviewMusic)
-                ),
-                g -> g.unlockClue("음악실 녹음")
-        ));
+    private Consumer<GameState> buildSceneOnEnter(String string) {
+        return switch (string == null ? DEFAULT_PLAYER_NAME : string) {
+            case DEFAULT_PLAYER_NAME, "noop" -> null;
+            case "unlock_music_record" -> gameState -> gameState.unlockClue("\uc74c\uc545\uc2e4 \ub179\uc74c");
+            case "unlock_music_witness" -> gameState -> gameState.unlockClue("\ubcf5\ub3c4 \ubaa9\uaca9\ub2f4");
+            case "unlock_music_sheet" -> gameState -> gameState.unlockClue("\ucc22\uc5b4\uc9c4 \uc545\ubcf4");
+            case "unlock_science_label" -> gameState -> gameState.unlockClue("\ub77c\ubca8 \uc9c0\uc6cc\uc9c4 \uc6a9\uae30");
+            case "unlock_science_cleanup" -> gameState -> gameState.unlockClue("\uc815\ub9ac \uc9c0\uc2dc \uae30\ub85d");
+            case "unlock_science_warning" -> gameState -> gameState.unlockClue("\uc190\uae00\uc528 \uacbd\uace0 \uba54\ubaa8");
+            case "unlock_pool_video" -> gameState -> gameState.unlockClue("\uc218\uc601\uc7a5 \uc601\uc0c1");
+            case "unlock_pool_support" -> gameState -> gameState.unlockClue("\ud604\uc7a5 \uc9c0\uc6d0 \uae30\ub85d");
+            case "unlock_pool_facility" -> gameState -> gameState.unlockClue("\uc218\uc601\uc7a5 \uc2dc\uc124 \uc810\uac80\ud45c");
+            case "unlock_rooftop_gate" -> gameState -> gameState.unlockClue("\uc625\uc0c1 \ucd9c\uc785 \uae30\ub85d");
+            case "unlock_rooftop_prejudice" -> gameState -> gameState.unlockClue("\uc758\uc2ec\uc774 \ud37c\uc9c4 \uc99d\uc5b8");
+            case "unlock_project_minutes" -> gameState -> gameState.unlockClue("\ud504\ub85c\uc81d\ud2b8 \ud68c\uc758\ub85d");
+            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 scene onEnter ID: " + string);
+        };
+    }
 
-        scenes.put("music_corridor_witness", new Scene(
-                "복도 목격담",
-                "Chapter 2  첫 번째 사고",
-                """
-                복도에서 대기하던 학생들은 문이 한 번 세게 닫힌 뒤에도 몇 마디 연주가 더 이어졌다고 진술한다.
-                즉 누군가가 즉시 들이닥쳐 공격했다기보다, 다영이 혼자 연습을 계속하던 시간이 분명히 있었다.
-                김세진이 근처에 있었다는 말도 있지만 그 시점은 사고 직후 정리 요청을 받고 도착한 시간과 겹친다.
-                """,
-                "플레이어",
-                "가까이 있었다는 사실만으로 원인을 고르면, 사고가 커진 과정이 통째로 비어 버린다.",
-                "bg_music_room_night.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("녹음 파일과 현장 기록을 본다", "music_record"),
-                        new Choice("찢어진 악보를 조사한다", "music_torn_sheet"),
-                        new Choice("모은 단서를 정리한다", "music_review", g -> {}, Main::canReviewMusic)
-                ),
-                g -> g.unlockClue("복도 목격담")
-        ));
+    private Consumer<GameState> buildChoiceEffect(String string) {
+        return switch (string == null || string.isBlank() ? "noop" : string) {
+            case "noop" -> gameState -> {};
+            case "mark_music_wrong" -> gameState -> {
+                ++gameState.suspicionScore;
+                gameState.musicSolved = true;
+            };
+            case "resolve_music_true" -> gameState -> {
+                gameState.musicSolved = true;
+                ++gameState.truthScore;
+                gameState.unlockClue("\uc8fc\ub2e4\uc601 \uc0ac\uac74 \ud574\uacb0");
+            };
+            case "mark_science_wrong" -> gameState -> {
+                ++gameState.suspicionScore;
+                gameState.scienceSolved = true;
+            };
+            case "resolve_science_true" -> gameState -> {
+                gameState.scienceSolved = true;
+                ++gameState.truthScore;
+                gameState.unlockClue("\ud55c\uc2b9\uc900 \uc0ac\uac74 \ud574\uacb0");
+            };
+            case "mark_pool_wrong" -> gameState -> {
+                ++gameState.suspicionScore;
+                gameState.poolSolved = true;
+            };
+            case "resolve_pool_true" -> gameState -> {
+                gameState.poolSolved = true;
+                ++gameState.truthScore;
+                gameState.unlockClue("\uae40\uc900\uc601 \uc0ac\uac74 \ud574\uacb0");
+            };
+            case "set_final_accuse" -> gameState -> {
+                gameState.finalChoice = "accuse";
+            };
+            case "set_final_silence" -> gameState -> {
+                gameState.finalChoice = "silence";
+            };
+            case "set_final_innocent" -> gameState -> {
+                gameState.finalChoice = "innocent";
+            };
+            case "reset_state" -> GameState::reset;
+            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 choice effect ID: " + string);
+        };
+    }
 
-        scenes.put("music_torn_sheet", new Scene(
-                "찢어진 악보",
-                "Chapter 2  첫 번째 사고",
-                """
-                넘어져 있던 악보대 아래에는 구겨진 악보와, 급히 수정한 박자 메모가 흩어져 있다.
-                종이 가장자리에는 누군가와 몸싸움을 벌인 흔적보다는, 연습을 멈추지 못하고 계속 넘기다 찢긴 자국이 더 선명하다.
-                다영은 실수를 만회하려고 한 곡을 더 녹음하려 했고, 그 조급함이 위험한 상태의 장비를 계속 쓰게 만들었다.
-                """,
-                "플레이어",
-                "이건 위협의 흔적이라기보다, 멈추지 못한 연습의 흔적이다.",
-                "bg_music_room_close.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("녹음 파일과 현장 기록을 본다", "music_record"),
-                        new Choice("복도 목격담을 확인한다", "music_corridor_witness"),
-                        new Choice("모은 단서를 정리한다", "music_review", g -> {}, Main::canReviewMusic)
-                ),
-                g -> g.unlockClue("찢어진 악보")
-        ));
+    private Predicate<GameState> buildChoiceVisibility(String string) {
+        return switch (string == null || string.isBlank() ? "always" : string) {
+            case "always" -> gameState -> true;
+            case "can_review_music" -> Main::canReviewMusic;
+            case "can_review_science" -> Main::canReviewScience;
+            case "can_review_pool" -> Main::canReviewPool;
+            case "can_enter_music_case" -> gameState -> !gameState.musicSolved;
+            case "can_enter_science_case" -> gameState -> gameState.musicSolved && !gameState.scienceSolved;
+            case "can_enter_pool_case" -> gameState -> gameState.musicSolved && gameState.scienceSolved && !gameState.poolSolved;
+            case "can_enter_final_case" -> gameState -> gameState.musicSolved && gameState.scienceSolved && gameState.poolSolved && !gameState.visitedScenes.contains("rooftop_intro");
+            case "can_review_final_board" -> Main::canReviewFinalBoard;
+            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 choice visibility ID: " + string);
+        };
+    }
 
-        scenes.put("music_review", new Scene(
-                "음악실 단서 정리",
-                "Chapter 2  첫 번째 사고",
-                """
-                모은 단서:
-                음악실 녹음 / 복도 목격담 / 찢어진 악보
+    private void validateImageReference(String string, String string2, String string3) {
+        if (string3 == null || string3.isBlank()) {
+            return;
+        }
+        Path path = Path.of("assets", "images", string3);
+        if (!Files.exists(path, new LinkOption[0])) {
+            throw new IllegalStateException("\uc7a5\uba74 '" + string + "'\uc758 " + string2 + " \ud30c\uc77c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4: " + String.valueOf(path));
+        }
+    }
 
-                녹음은 사고 직전까지 연습이 이어졌음을 보여 주고, 목격담은 즉각적인 습격보다 뒤늦은 소동을 가리킨다.
-                악보는 야간 단독 연습과 점검 생략이 반복됐다는 사실을 남긴다.
-                """,
-                "플레이어",
-                "이제는 누가 들어왔는지가 아니라, 다영이 왜 끝까지 음악실에 남아 있었는지를 다시 맞춰야 한다.",
-                "bg_music_room_night.png",
-                "ch_player.png",
-                List.of(new Choice("사건을 재구성한다", "music_deduction")),
-                null
-        ));
+    private String readRequiredString(Map<String, Object> map, String string) {
+        Object object = map.get(string);
+        if (!(object instanceof String)) {
+            throw new IllegalArgumentException("\ubb38\uc790\uc5f4 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+        }
+        String string2 = (String)object;
+        return string2;
+    }
 
-        scenes.put("music_deduction", new Scene(
-                "음악실 재구성 1",
-                "Chapter 2  첫 번째 사고",
-                """
-                재구성 질문:
-                다영이 위험한 상태의 음악실에 남아 있던 가장 큰 이유는 무엇인가.
-                """,
-                "플레이어",
-                "쉽게는 누군가의 침입으로 설명할 수 있다. 하지만 그 선택으로는 반복된 점검 생략이 설명되지 않는다.",
-                "bg_music_room_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("김세진이 숨어 있다가 다영이를 즉시 공격했다고 본다", "music_wrong", g -> { g.suspicionScore++; g.musicSolved = true; }, g -> true, true),
-                        new Choice("촬영 분량을 맞추려는 조급함 때문에 다영이 위험한 연습을 계속했다고 본다", "music_reconstruction")
-                ),
-                null
-        ));
+    private String readOptionalString(Map<String, Object> map, String string) {
+        Object object = map.get(string);
+        if (object == null) {
+            return DEFAULT_PLAYER_NAME;
+        }
+        if (object instanceof String) {
+            String string2 = (String)object;
+            return string2;
+        }
+        throw new IllegalArgumentException("\ubb38\uc790\uc5f4 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+    }
 
-        scenes.put("music_reconstruction", new Scene(
-                "음악실 재구성 2",
-                "Chapter 2  첫 번째 사고",
-                """
-                다음 질문:
-                그렇다면 직접적인 사고는 어떤 순서로 벌어졌는가.
-                """,
-                "플레이어",
-                "누군가와의 실랑이보다, 고정되지 않은 장비와 무리한 야간 연습이 겹친 쪽이 더 자연스럽다.",
-                "bg_music_room_close.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("고정되지 않은 장비와 무리한 야간 연습이 겹쳐 사고가 났고, 뒤늦은 발소리가 괴담처럼 남았다", "music_true", g -> {
-                            g.musicSolved = true;
-                            g.truthScore++;
-                            g.unlockClue("주다영 사건 해결");
-                        }),
-                        new Choice("다영이 누군가와 실랑이를 벌이다 즉시 가격당했다고 본다", "music_wrong", g -> { g.suspicionScore++; g.musicSolved = true; })
-                ),
-                null
-        ));
+    private boolean readBoolean(Map<String, Object> map, String string) {
+        Object object = map.get(string);
+        if (object instanceof Boolean) {
+            Boolean bl = (Boolean)object;
+            return bl;
+        }
+        throw new IllegalArgumentException("\ubd88\ub9ac\uc5b8 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+    }
 
-        scenes.put("music_wrong", new Scene(
-                "음악실 오판",
-                "Chapter 2  첫 번째 사고",
-                """
-                김세진이 근처에 있었다는 사실은 강한 의심을 만든다.
-                하지만 녹음의 순서와 악보 상태는 다영이 혼자 위험한 연습을 이어 갔다는 쪽을 더 강하게 지시한다.
-                범인을 하나 고르는 데 성공해도, 왜 사고가 준비 과정에서 반복됐는지는 여전히 비어 있다.
-                """,
-                "플레이어",
-                "쉬운 설명은 얻었지만, 사고가 왜 생겼는지는 놓쳤다.",
-                "bg_music_room_night.png",
-                "ch_player.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
+    private List<PageSpec> buildPageSpecs(List<PageDefinition> list) {
+        ArrayList<PageSpec> arrayList = new ArrayList<PageSpec>();
+        for (PageDefinition pageDefinition : list) {
+            arrayList.add(new PageSpec(pageDefinition.text, pageDefinition.speaker, pageDefinition.backgroundImage, pageDefinition.characterImage));
+        }
+        return List.copyOf(arrayList);
+    }
 
-        scenes.put("music_true", new Scene(
-                "음악실 사건 결론",
-                "Chapter 2  첫 번째 사고",
-                """
-                주다영의 사고는 누군가의 습격보다, 야간 단독 연습과 점검 생략이 겹친 결과에 가깝다.
-                사고 직후 복도 소리와 김세진의 동선은 강한 오해를 만들었지만, 직접 원인은 아니었다.
-                첫 번째 사건은 이미 '멈추지 못한 촬영'이 어떻게 사람을 밀어 넣는지 보여 준다.
-                """,
-                "양지영",
-                "그날 필요한 건 범인을 찾는 게 아니라, 연습을 멈추게 하는 일이었어요.",
-                "bg_music_room_close.png",
-                "ch_ju_dayeong.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
+    private void validatePageDefinitions(SceneDefinition sceneDefinition) {
+        for (int i = 0; i < sceneDefinition.pages.size(); ++i) {
+            PageDefinition pageDefinition = sceneDefinition.pages.get(i);
+            if (pageDefinition.backgroundImage != null && !pageDefinition.backgroundImage.isBlank()) {
+                this.validateImageReference(sceneDefinition.id + "[page " + i + "]", "backgroundImage", pageDefinition.backgroundImage);
+            }
+            if (pageDefinition.characterImage == null || pageDefinition.characterImage.isBlank()) continue;
+            this.validateImageReference(sceneDefinition.id + "[page " + i + "]", "characterImage", pageDefinition.characterImage);
+        }
+    }
 
-        scenes.put("science_intro", new Scene(
-                "과학실 사고",
-                "Chapter 3  두 번째 사고",
-                """
-                두 번째 사고의 피해자는 과학부의 한승준이다.
-                촬영용 실험 장면을 준비하던 중 과학실에서 폭발 사고가 일어났고, 학생들은 곧바로 누군가 약품을 바꿨다는 소문을 만들었다.
-                특히 사고 직후 현장에 있던 김세진의 이름은 다시 의심의 중심으로 올라온다.
-                """,
-                "플레이어",
-                "폭발은 조작처럼 보이기 쉽다. 그래서 더더욱 순서와 기록을 분리해 읽어야 한다.",
-                "bg_science_lab_night.png",
-                "ch_han_seungjun.png",
-                List.of(
-                        new Choice("장치 기록과 실험 메모를 조사한다", "science_lab"),
-                        new Choice("정리 지시 기록을 확인한다", "science_cleanup_record"),
-                        new Choice("손글씨 경고 메모를 조사한다", "science_handwritten_note"),
-                        new Choice("모은 단서를 정리한다", "science_review", g -> {}, Main::canReviewScience)
-                ),
-                null
-        ));
+    private List<Object> requireList(Object object, String string) {
+        if (object instanceof List) {
+            List list = (List)object;
+            return new ArrayList<Object>(list);
+        }
+        throw new IllegalArgumentException(string + " must be a JSON array");
+    }
 
-        scenes.put("science_lab", new Scene(
-                "장치 기록과 실험 메모",
-                "Chapter 3  두 번째 사고",
-                """
-                작업대 옆에는 반쯤 지워진 용기 라벨과 수정된 반응식 메모가 남아 있다.
-                겉으로 보면 누군가가 일부러 장치를 건드린 것처럼 보이지만, 메모의 수정 방향은 위험을 키우려는 조작보다는 급히 수치를 맞추려는 보정에 가깝다.
-                문제는 그 보정이 촬영을 맞추기 위해 안전 확인보다 먼저 실행됐다는 점이다.
-                """,
-                "플레이어",
-                "의심할 만한 흔적은 선명하다. 하지만 성급한 수정 흔적이라는 해석도 충분히 가능하다.",
-                "bg_science_explosion_mark.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("정리 지시 기록을 확인한다", "science_cleanup_record"),
-                        new Choice("손글씨 경고 메모를 조사한다", "science_handwritten_note"),
-                        new Choice("모은 단서를 정리한다", "science_review", g -> {}, Main::canReviewScience)
-                ),
-                g -> g.unlockClue("라벨 지워진 용기")
-        ));
-
-        scenes.put("science_cleanup_record", new Scene(
-                "정리 지시 기록",
-                "Chapter 3  두 번째 사고",
-                """
-                과학실 사용 기록에는 '촬영 배경 정리 우선', '실험은 오늘 안에 끝낼 것' 같은 지시가 반복된다.
-                반면 보호 장비 확인과 환기 항목은 비어 있거나 뒤로 밀려 있다.
-                누군가 몰래 약품을 바꾼 흔적보다, 모두가 위험을 알면서도 촬영 준비를 앞세운 흔적이 더 또렷하다.
-                """,
-                "플레이어",
-                "정리 순서가 거꾸로 되어 있다. 그 무리수가 결국 장치보다 먼저 문제였다.",
-                "bg_science_lab_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("장치 기록과 실험 메모를 조사한다", "science_lab"),
-                        new Choice("손글씨 경고 메모를 조사한다", "science_handwritten_note"),
-                        new Choice("모은 단서를 정리한다", "science_review", g -> {}, Main::canReviewScience)
-                ),
-                g -> g.unlockClue("정리 지시 기록")
-        ));
-
-        scenes.put("science_handwritten_note", new Scene(
-                "손글씨 경고 메모",
-                "Chapter 3  두 번째 사고",
-                """
-                작업대 모서리에는 '보호 안경 먼저', '환기 후 재가열' 같은 경고가 손글씨로 적혀 있다.
-                그러나 바로 아래에는 '마감 전 촬영본 확보'가 더 굵은 글씨로 겹쳐 쓰여 있다.
-                이 메모는 누군가의 범행 선언이 아니라, 경고가 매번 마감에 밀려난 현장의 분위기를 보여 준다.
-                """,
-                "플레이어",
-                "문제는 누가 썼느냐보다, 왜 경고 문장이 늘 마지막에 지워졌느냐다.",
-                "bg_science_explosion_mark.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("장치 기록과 실험 메모를 조사한다", "science_lab"),
-                        new Choice("정리 지시 기록을 확인한다", "science_cleanup_record"),
-                        new Choice("모은 단서를 정리한다", "science_review", g -> {}, Main::canReviewScience)
-                ),
-                g -> g.unlockClue("손글씨 경고 메모")
-        ));
-
-        scenes.put("science_review", new Scene(
-                "과학실 단서 정리",
-                "Chapter 3  두 번째 사고",
-                """
-                모은 단서:
-                라벨 지워진 용기 / 정리 지시 기록 / 손글씨 경고 메모
-
-                장치 흔적만 보면 조작처럼 보이지만, 기록을 겹쳐 보면 경고가 계속 밀리고 촬영 준비가 앞선다.
-                과학실 사고는 누군가의 은밀한 개입보다, 위험한 상태를 알면서도 강행한 절차의 누적에 가깝다.
-                """,
-                "플레이어",
-                "이제 승준이 어떤 환경 안에서 실험을 계속했는지를 순서대로 다시 세워야 한다.",
-                "bg_science_lab_night.png",
-                "ch_player.png",
-                List.of(new Choice("사건을 재구성한다", "science_deduction")),
-                null
-        ));
-
-        scenes.put("science_deduction", new Scene(
-                "과학실 재구성 1",
-                "Chapter 3  두 번째 사고",
-                """
-                재구성 질문:
-                폭발 위험이 커진 첫 단계는 무엇인가.
-                """,
-                "플레이어",
-                "조작이라고 단정하면 빠르다. 하지만 그러면 왜 보호 장비와 환기 절차가 비어 있었는지가 설명되지 않는다.",
-                "bg_science_lab_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("김세진이 약품과 장치를 몰래 조작했다고 본다", "science_wrong", g -> { g.suspicionScore++; g.scienceSolved = true; }, g -> true, true),
-                        new Choice("보호 장비 확인과 환기 절차가 촬영 준비 뒤로 밀리며 위험이 누적됐다고 본다", "science_reconstruction")
-                ),
-                null
-        ));
-
-        scenes.put("science_reconstruction", new Scene(
-                "과학실 재구성 2",
-                "Chapter 3  두 번째 사고",
-                """
-                다음 질문:
-                그렇다면 마지막 폭발은 어떤 선택 끝에 일어났는가.
-                """,
-                "플레이어",
-                "승준은 음모의 희생자라기보다, 멈추자는 요청이 묵살된 실험 안에 서 있었다.",
-                "bg_science_explosion_mark.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("미완료 정리 상태에서 촬영용 실험을 강행해 반응이 커졌고, 그 결과 폭발이 일어났다", "science_true", g -> {
-                            g.scienceSolved = true;
-                            g.truthScore++;
-                            g.unlockClue("한승준 사건 해결");
-                        }),
-                        new Choice("승준이 과장된 연출을 위해 혼자 위험한 약품을 바꿨다고 본다", "science_wrong", g -> { g.suspicionScore++; g.scienceSolved = true; })
-                ),
-                null
-        ));
-
-        scenes.put("science_wrong", new Scene(
-                "과학실 오판",
-                "Chapter 3  두 번째 사고",
-                """
-                장치 흔적만 보면 누군가 조작한 것처럼 보인다.
-                그러나 정리 지시와 경고 메모는 현장이 이미 무리한 일정 속에 흔들리고 있었음을 보여 준다.
-                조작이라는 결론은 선명하지만, 왜 위험이 반복됐는지는 설명하지 못한다.
-                """,
-                "플레이어",
-                "가해자를 고르는 데는 성공했지만, 구조를 읽는 데는 실패했다.",
-                "bg_science_explosion_mark.png",
-                "ch_player.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
-
-        scenes.put("science_true", new Scene(
-                "과학실 사건 결론",
-                "Chapter 3  두 번째 사고",
-                """
-                한승준의 사고는 장치 조작보다, 촬영 마감을 위해 안전 절차를 계속 뒤로 미룬 결과에 가깝다.
-                라벨 흔적과 수정 메모는 범행의 증거가 아니라, 무리한 일정 속에서 현장을 맞춰 가던 흔적이었다.
-                두 번째 사건 역시 '멈추지 못한 프로젝트'가 어떻게 위험을 키우는지 보여 준다.
-                """,
-                "양지영",
-                "다들 이상하다고는 했어요. 그런데 아무도 그날 당장 멈추게 하진 못했죠.",
-                "bg_science_lab_night.png",
-                "ch_yang_jiyeong.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
-
-        scenes.put("pool_intro", new Scene(
-                "수영장 사고",
-                "Chapter 4  세 번째 사고",
-                """
-                세 번째 사고의 피해자는 수영부의 김준영이다.
-                수중 촬영을 준비하던 밤, 구조 타이밍이 몇 초 어긋나며 익사 사고가 발생했다.
-                준영이 평소 수영을 잘했다는 사실 때문에 학생들은 오히려 누군가 의도적으로 방해했다고 믿기 시작한다.
-                """,
-                "양지영",
-                "준영이는 체력이 좋았어요. 그래서 애들이 다들 더더욱 사고라는 말을 못 믿었죠.",
-                "bg_pool_night.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                null
-        ));
-
-        scenes.put("pool_video", new Scene(
-                "수중 촬영 영상",
-                "Chapter 4  세 번째 사고",
-                """
-                영상에는 구조 인력이 바로 뛰어들지 못한 몇 초의 공백이 남아 있다.
-                카메라 위치는 촬영 구도를 우선한 방향으로 바뀌어 있고, 안전 로프가 프레임 밖으로 치워진 흔적도 보인다.
-                학생들은 이 변화를 김세진의 배치 조작으로 해석하지만, 영상만으로는 의도를 단정할 수 없다.
-                """,
-                "플레이어",
-                "문제는 누가 손댔느냐보다, 왜 구조보다 화면 구도가 먼저였느냐는 쪽에 가깝다.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("수영장 영상")
-        ));
-
-        scenes.put("pool_interview", new Scene(
-                "현장 지원 기록",
-                "Chapter 4  세 번째 사고",
-                """
-                보조 인력 배치표에는 원래 네 명이던 안전 인원이 두 명으로 줄어든 기록이 남아 있다.
-                김세진은 촬영을 미루자고 적어 두었지만, 공모전 마감과 인원 부족 때문에 결국 강행됐다는 메모가 이어진다.
-                사고 직후 학생들이 본 것은 누군가를 끌어올리는 장면이 아니라, 이미 늦어진 구조였다.
-                """,
-                "플레이어",
-                "세 번째 사고에서도 먼저 보이는 건 개인의 흔적보다 무너진 통제다.",
-                "bg_pool_night.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("현장 지원 기록")
-        ));
-
-        scenes.put("pool_facility_log", new Scene(
-                "시설 점검표와 안전 장비",
-                "Chapter 4  세 번째 사고",
-                """
-                수영장 점검표에는 촬영 구간의 수심 표시 부표가 전날 분리되었다는 기록이 남아 있다.
-                대체 장비 신청은 올라갔지만 '공모전 촬영 우선' 메모와 함께 보류되었고, 안전 로프도 화면을 가린다는 이유로 치워져 있다.
-                즉 현장은 누군가의 함정보다, 위험을 알면서도 나중으로 미뤄 둔 안전 조치의 빈자리로 보인다.
-                """,
-                "플레이어",
-                "로프가 없는 이유가 범행 준비인지, 촬영 강행의 부산물인지가 핵심이다.",
-                "bg_pool_edge.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("수영장 시설 점검표")
-        ));
-
-        scenes.put("pool_review", new Scene(
-                "수영장 단서 정리",
-                "Chapter 4  세 번째 사고",
-                """
-                모은 단서:
-                수영장 영상 / 현장 지원 기록 / 수영장 시설 점검표
-
-                영상에는 구조 공백이 남아 있고, 지원 기록에는 안전 인력 축소가 적혀 있다.
-                점검표는 수심 표시와 안전 로프가 조작이 아니라 촬영 우선 판단 때문에 사라졌음을 보여 준다.
-                """,
-                "플레이어",
-                "이제 준영의 마지막 몇 초를 다시 세워야 한다. 무엇이 먼저 무너졌는지가 결론을 바꾼다.",
-                "bg_pool_night.png",
-                "ch_ju_dayeong.png",
-                List.of(new Choice("사건을 재구성한다", "pool_deduction")),
-                null
-        ));
-
-        scenes.put("pool_deduction", new Scene(
-                "수영장 재구성 1",
-                "Chapter 4  세 번째 사고",
-                """
-                재구성 질문:
-                가장 먼저 무너진 것은 무엇인가.
-                """,
-                "플레이어",
-                "누군가가 밀어 넣었다고 고르면 쉽다. 하지만 그러면 왜 안전선이 비어 있었는지가 남는다.",
-                "bg_pool_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("김세진이 일부러 배치를 바꿔 준영을 위험하게 만들었다고 본다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; }, g -> true, true),
-                        new Choice("안전 로프 철거와 보조 인력 축소가 먼저 일어나 구조선이 무너졌다고 본다", "pool_reconstruction")
-                ),
-                null
-        ));
-
-        scenes.put("pool_reconstruction", new Scene(
-                "수영장 재구성 2",
-                "Chapter 4  세 번째 사고",
-                """
-                다음 질문:
-                그렇다면 직접적인 비극은 어떤 공백에서 커졌는가.
-                """,
-                "플레이어",
-                "준영은 갑자기 약해진 게 아니다. 위험 신호를 봐 줄 사람이 제때 닿지 못한 쪽이 더 자연스럽다.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("촬영 구도를 맞추느라 구조 인력이 분산된 몇 초의 공백이 사고를 키웠다", "pool_true", g -> {
-                            g.poolSolved = true;
-                            g.truthScore++;
-                            g.unlockClue("김준영 사건 해결");
-                        }),
-                        new Choice("준영이 혼자 무리하게 잠수했다가 우연히 아무도 못 본 틈에 사고가 났다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; })
-                ),
-                null
-        ));
-
-        scenes.put("pool_wrong", new Scene(
-                "수영장 오판",
-                "Chapter 4  세 번째 사고",
-                """
-                김세진의 배치 변경 흔적은 강한 의심을 만든다.
-                그러나 지원 기록과 점검표는 그 변화가 범행 설계라기보다, 무너진 현장을 억지로 맞추려던 흔적에 더 가깝다고 말한다.
-                범인을 하나 정하는 데 성공해도, 왜 사고가 가능했는지는 여전히 남는다.
-                """,
-                "플레이어",
-                "의심은 남았지만 구조는 읽지 못했다.",
-                "bg_pool_edge.png",
-                "ch_player.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
-
-        scenes.put("pool_true", new Scene(
-                "수영장 사건 결론",
-                "Chapter 4  세 번째 사고",
-                """
-                김준영의 사고는 개인의 악의보다, 촬영 강행과 안전 인력 부족이 겹쳐 만든 구조적 사고에 가깝다.
-                수영을 잘하던 준영이었기에 더더욱 누군가의 의도를 상상하기 쉬웠지만, 실제로 무너진 것은 구조선과 판단 순서였다.
-                세 번째 사건은 세 사고의 공통 원인을 가장 선명하게 드러낸다.
-                """,
-                "양지영",
-                "이제야 다들 왜 그날 구조보다 촬영이 먼저였는지 보이네요.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
-
-        scenes.put("case_hub", new Scene(
-                "사건 정리",
-                "Chapter 1-4  프로젝트 조사",
-                """
-                세 사고는 모두 같은 UCC 프로젝트 안에서 일어났다.
-                음악실, 과학실, 수영장. 장소는 달랐지만 일정 압박, 미흡한 안전 확인, 그리고 김현진을 향한 의심이 반복된다.
-                플레이어는 사건들을 한 사람의 범행으로 묶을지, 프로젝트 전체의 실패로 읽을지 스스로 정리해야 한다.
-                """,
-                "플레이어",
-                "연결점이 많을수록 사람들은 범인을 찾고 싶어 한다. 하지만 연결점이 곧 원인의 전부는 아니다.",
-                "bg_main_hall_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("음악실 사고", "music_intro", g -> {}, g -> !g.musicSolved),
-                        new Choice("과학실 사고", "science_intro", g -> {}, g -> g.musicSolved && !g.scienceSolved),
-                        new Choice("수영장 사고", "pool_intro", g -> {}, g -> g.musicSolved && g.scienceSolved && !g.poolSolved),
-                        new Choice("최종 보고", "rooftop_intro", g -> {}, g -> g.musicSolved && g.scienceSolved && g.poolSolved && !g.visitedScenes.contains("rooftop_intro"))
-                ),
-                null
-        ));
-
-        scenes.put("rooftop_intro", new Scene(
-                "최종 보고 준비",
-                "Chapter 5  프로젝트 결말",
-                """
-                세 사건을 모두 정리하고 나면 마지막 질문이 남는다.
-                김세진은 왜 모든 현장 가까이에 있었고, 왜 늘 의심의 중심에 섰는가.
-                그 답을 적으려면 마지막으로 세진의 동선과, 학생들이 그를 범인처럼 믿게 된 과정을 다시 읽어야 한다.
-                """,
-                "양지영",
-                "세진이를 의심하는 건 쉬워요. 하지만 쉬운 결론일수록 마지막까지 다시 봐야 해요.",
-                "bg_archive_room.png",
-                "ch_yang_jiyeong_soft.png",
-                List.of(
-                        new Choice("옥상 출입 기록을 확인한다", "rooftop_gate"),
-                        new Choice("학생들 사이에 퍼진 의심을 듣는다", "rooftop_prejudice"),
-                        new Choice("회의록과 일정 변경 기록을 읽는다", "rooftop_note"),
-                        new Choice("최종 재구성을 시작한다", "final_board", g -> {}, Main::canReviewFinalBoard)
-                ),
-                null
-        ));
-
-        scenes.put("rooftop_gate", new Scene(
-                "옥상 출입 기록",
-                "Chapter 5  프로젝트 결말",
-                """
-                출입 기록에는 사고가 벌어진 날마다 김세진의 이름이 남아 있다.
-                하지만 같은 줄마다 '촬영 중단 요청', '안전 점검 문의', '대체 인원 필요' 같은 메모도 함께 적혀 있다.
-                세진의 이동은 사건을 설계한 동선이라기보다, 반복해서 문제를 수습하러 뛰어다닌 동선에 더 가깝다.
-                """,
-                "플레이어",
-                "이름만 떼어 보면 범인 같고, 메모까지 읽으면 가장 먼저 경고한 사람처럼 보인다.",
-                "bg_rooftop_edge.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("학생들 사이에 퍼진 의심을 듣는다", "rooftop_prejudice"),
-                        new Choice("회의록과 일정 변경 기록을 읽는다", "rooftop_note"),
-                        new Choice("최종 재구성을 시작한다", "final_board", g -> {}, Main::canReviewFinalBoard)
-                ),
-                g -> g.unlockClue("옥상 출입 기록")
-        ));
-
-        scenes.put("rooftop_prejudice", new Scene(
-                "퍼져 버린 의심",
-                "Chapter 5  프로젝트 결말",
-                """
-                학생들의 말은 놀랄 만큼 비슷하다.
-                '문제가 생기면 항상 세진 선배가 먼저 왔어.'
-                '그러니까 더 수상했어.'
-                그러나 되짚어 보면 그 인상은 사건의 원인보다, 모두가 설명하기 쉬운 얼굴 하나를 찾으려는 심리에서 커졌다.
-                """,
-                "플레이어",
-                "오해를 진실처럼 보이게 만드는 구조는 늘 같다. 자주 보인 사람은 범인이 되고, 자주 무시된 규칙은 배경이 된다.",
-                "bg_rooftop_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("옥상 출입 기록을 확인한다", "rooftop_gate"),
-                        new Choice("회의록과 일정 변경 기록을 읽는다", "rooftop_note"),
-                        new Choice("최종 재구성을 시작한다", "final_board", g -> {}, Main::canReviewFinalBoard)
-                ),
-                g -> g.unlockClue("의심이 퍼진 증언")
-        ));
-
-        scenes.put("rooftop_note", new Scene(
-                "회의록과 일정 변경 기록",
-                "Chapter 5  프로젝트 결말",
-                """
-                기록에는 같은 문장이 반복된다.
-                '촬영 연기 제안'
-                '안전 인원 부족'
-                '실험 대기 필요'
-                '공모전 마감으로 강행'
-                김세진의 이름은 현장마다 남아 있지만, 대부분은 문제를 보고하고도 프로젝트를 멈추지 못한 흔적이다.
-                """,
-                "플레이어",
-                "의심의 재료처럼 보이던 기록이 다시 읽자 경고 기록으로 뒤집힌다.",
-                "bg_archive_room.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("옥상 출입 기록을 확인한다", "rooftop_gate"),
-                        new Choice("학생들 사이에 퍼진 의심을 듣는다", "rooftop_prejudice"),
-                        new Choice("최종 재구성을 시작한다", "final_board", g -> {}, Main::canReviewFinalBoard)
-                ),
-                g -> g.unlockClue("프로젝트 회의록")
-        ));
-
-        scenes.put("final_board", new Scene(
-                "최종 재구성",
-                "Final Board",
-                """
-                최종 단서:
-                옥상 출입 기록 / 의심이 퍼진 증언 / 프로젝트 회의록
-
-                세 기록을 겹쳐 보면, 김세진은 사건을 설계한 사람이라기보다 반복해서 위험을 경고했지만 끝내 멈추게 하지는 못한 사람에 가깝다.
-                학생들은 현장마다 보인 세진을 범인으로 묶었고, 그 사이 공모전 마감과 촬영 강행, 안전 점검 누락은 진짜 원인인데도 배경으로 밀렸다.
-                먼저 세 사건을 하나의 문장으로 재구성해야 한다.
-                """,
-                "플레이어",
-                "누가 미웠는지가 아니라, 무엇이 반복됐는지를 먼저 기록해야 한다.",
-                "bg_chapel_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("세 사건은 모두 누군가의 직접적 살해이며 김세진이 그 중심에 있었다고 본다", "ending_wrong_accusation", g -> g.finalChoice = "accuse"),
-                        new Choice("세 사건은 공모전 마감 압박과 촬영 강행이 만든 연쇄 사고였다고 재구성한다", "final_verdict"),
-                        new Choice("끝내 하나의 구조로 묶지 못하겠다", "ending_silence", g -> g.finalChoice = "silence")
-                ),
-                null
-        ));
-
-        scenes.put("final_verdict", new Scene(
-                "최종 결론 기록",
-                "Final Verdict",
-                """
-                재구성은 끝났다.
-                이제 마지막으로 공식 기록의 문장을 정해야 한다.
-                """,
-                "플레이어",
-                "세진의 침묵과 동선은 의심의 재료였지만, 사건의 원인 자체는 아니었다. 무엇을 남길 것인가.",
-                "bg_school_dawn.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("김세진은 범인이 아니다", "ending_true", g -> g.finalChoice = "innocent"),
-                        new Choice("그래도 김세진을 범인으로 기록한다", "ending_wrong_accusation", g -> g.finalChoice = "accuse"),
-                        new Choice("보고를 끝내지 못한다", "ending_silence", g -> g.finalChoice = "silence")
-                ),
-                null
-        ));
-
-        scenes.put("ending_true", new Scene(
-                "기록된 진실",
-                "Ending  Truth",
-                """
-                플레이어는 김현진 개인에게 향한 의심을 걷어 내고, 세 사고를 하나의 구조적 실패로 기록한다.
-                공모전 마감 압박, 반복된 강행 촬영, 비어 있던 안전 확인이 세 비극의 공통 원인이었다는 사실이 남는다.
-                늦었지만 기록은 바로잡히고, 학교는 더 이상 이 사건들을 '설명하기 쉬운 범죄 이야기'로 포장하지 못한다.
-                """,
-                "양지영",
-                "이제야 아이들이 왜 죽었는지 제대로 말할 수 있겠네요. 누가 미워서가 아니라, 모두가 멈추지 못해서였다고.",
-                "bg_school_dawn.png",
-                "ch_yang_jiyeong_confess.png",
-                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
-                null
-        ));
-
-        scenes.put("ending_wrong_accusation", new Scene(
-                "희생양",
-                "Ending  Scapegoat",
-                """
-                플레이어는 김현진을 범인으로 기록한다.
-                학교는 그 결론을 이용해 프로젝트의 안전 문제와 촬영 강행 책임을 한 사람의 악의로 덮어 버린다.
-                사건은 해결된 것처럼 보이지만, 왜 세 사고가 반복되었는지는 끝내 바로잡히지 않는다.
-                """,
-                "플레이어",
-                "가장 설명하기 쉬운 이름 하나를 남겼다. 대신 구조는 다시 어둠 속으로 밀려났다.",
-                "bg_rooftop_night.png",
-                "",
-                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
-                null
-        ));
-
-        scenes.put("ending_silence", new Scene(
-                "미완의 보고서",
-                "Ending  Silence",
-                """
-                플레이어는 결론을 보류한다.
-                학교는 사건들을 각자의 사고로 흩어 두고, 학생들은 여전히 김현진을 의심한 채 서로 다른 이야기를 믿는다.
-                진실에 가장 가까이 갔지만 끝내 기록하지 못한 탓에, 프로젝트의 실패 역시 또렷한 책임으로 남지 못한다.
-                """,
-                "양지영",
-                "말하지 않으면 아무것도 틀리지 않은 것처럼 보이죠. 하지만 그건 진실을 남기지 않는 방식일 뿐이에요.",
-                "bg_main_hall_night.png",
-                "ch_yang_jiyeong_confess.png",
-                List.of(new Choice("시작 화면으로", "prologue_arrival", GameState::reset)),
-                null
-        ));
+    private Map<String, Object> requireMap(Object object, String string) {
+        if (object instanceof Map) {
+            Map map = (Map)object;
+            LinkedHashMap<String, Object> linkedHashMap = new LinkedHashMap<String, Object>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>)map).entrySet()) {
+                linkedHashMap.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+            return linkedHashMap;
+        }
+        throw new IllegalArgumentException(string + " must be a JSON object");
     }
 
     private void resetState() {
-        state.reset();
+        this.state.reset();
     }
 
     private void showStartScreen() {
-        currentScene = null;
-        currentSceneId = "start_menu";
-        activeBackgroundImage = "bg_school_gate_night.png";
-        activeCharacterImage = "";
-        titleLabel.setText("월야고등학교");
-        chapterLabel.setText("START");
-        nameField.setText(state.playerName == null || state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : state.playerName);
-        storyArea.setText("");
-        speakerBadge.setVisible(false);
-        speakerPanel.setVisible(false);
-        choiceOverlay.setVisible(false);
-        galleryOverlay.setVisible(false);
-        startOverlay.setVisible(true);
-        hudPanel.setVisible(false);
-        refreshContinueButton();
-        layoutSceneLayers();
-        refreshImages();
-        SwingUtilities.invokeLater(() -> nameField.requestFocusInWindow());
+        this.currentScene = null;
+        this.currentSceneId = "start_menu";
+        this.activeBackgroundImage = "bg_school_gate_night.png";
+        this.activeCharacterImage = DEFAULT_PLAYER_NAME;
+        this.titleLabel.setText("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50");
+        this.chapterLabel.setText("START");
+        this.nameField.setText(this.state.playerName == null || this.state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : this.state.playerName);
+        this.storyArea.setText(DEFAULT_PLAYER_NAME);
+        this.speakerBadge.setVisible(false);
+        this.speakerPanel.setVisible(false);
+        this.choiceOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(false);
+        this.startOverlay.setVisible(true);
+        this.hudPanel.setVisible(false);
+        this.refreshContinueButton();
+        this.layoutSceneLayers();
+        this.refreshImages();
+        SwingUtilities.invokeLater(() -> this.nameField.requestFocusInWindow());
     }
 
     private void startGame() {
-        String enteredName = nameField.getText() == null ? "" : nameField.getText().trim();
-        if (enteredName.isEmpty()) {
-            nameField.requestFocusInWindow();
+        String string;
+        String string2 = string = this.nameField.getText() == null ? DEFAULT_PLAYER_NAME : this.nameField.getText().trim();
+        if (string.isEmpty()) {
+            this.nameField.requestFocusInWindow();
             return;
         }
-        state.playerName = enteredName;
-        state.resetForNewRun();
-        startOverlay.setVisible(false);
-        galleryOverlay.setVisible(false);
-        hudPanel.setVisible(true);
-        showScene("prologue_arrival");
+        this.state.playerName = string;
+        this.state.resetForNewRun();
+        this.startOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(false);
+        this.hudPanel.setVisible(true);
+        this.showScene("prologue_arrival");
     }
 
     private void continueGame() {
         SaveData saveData = SaveData.load(SAVE_PATH);
         if (saveData == null) {
-            refreshContinueButton();
+            this.refreshContinueButton();
             return;
         }
-        saveData.applyTo(state);
-        textSpeedMs = saveData.textSpeedMs;
-        nameField.setText(state.playerName);
-        startOverlay.setVisible(false);
-        galleryOverlay.setVisible(false);
-        hudPanel.setVisible(true);
-        showScene(saveData.currentSceneId == null || saveData.currentSceneId.isBlank() ? "prologue_arrival" : saveData.currentSceneId);
+        saveData.applyTo(this.state);
+        this.textSpeedMs = saveData.textSpeedMs;
+        this.nameField.setText(this.state.playerName);
+        this.startOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(false);
+        this.hudPanel.setVisible(true);
+        this.showScene(saveData.currentSceneId == null || saveData.currentSceneId.isBlank() ? "prologue_arrival" : saveData.currentSceneId);
     }
 
     private void clearSaveData() {
         try {
             Files.deleteIfExists(SAVE_PATH);
-        } catch (IOException ignored) {
         }
-        state.reset();
-        showStartScreen();
+        catch (IOException iOException) {
+            // empty catch block
+        }
+        this.state.reset();
+        this.showStartScreen();
     }
 
     private void refreshContinueButton() {
-        if (continueGameButton != null) {
-            continueGameButton.setEnabled(Files.exists(SAVE_PATH));
+        if (this.continueGameButton != null) {
+            this.continueGameButton.setEnabled(Files.exists(SAVE_PATH, new LinkOption[0]));
         }
     }
 
     private void persistState() {
-        SaveData.from(state, currentSceneId, textSpeedMs).save(SAVE_PATH);
-        refreshContinueButton();
+        SaveData.from(this.state, this.currentSceneId, this.textSpeedMs).save(SAVE_PATH);
+        this.refreshContinueButton();
     }
 
     private void loadSaveData() {
         SaveData saveData = SaveData.load(SAVE_PATH);
         if (saveData == null) {
-            refreshContinueButton();
+            this.refreshContinueButton();
             return;
         }
-        saveData.applyTo(state);
-        textSpeedMs = saveData.textSpeedMs;
-        refreshContinueButton();
+        saveData.applyTo(this.state);
+        this.textSpeedMs = saveData.textSpeedMs;
+        this.refreshContinueButton();
     }
 
     private void showEndingGallery() {
-        refreshEndingGallery();
-        startOverlay.setVisible(false);
-        galleryOverlay.setVisible(true);
-        hudPanel.setVisible(false);
-        speakerPanel.setVisible(false);
-        choiceOverlay.setVisible(false);
-        currentScene = null;
-        currentSceneId = "ending_gallery";
-        activeBackgroundImage = "bg_archive_room.png";
-        activeCharacterImage = "";
-        titleLabel.setText("엔딩 모음");
-        chapterLabel.setText("ARCHIVE");
-        layoutSceneLayers();
-        refreshImages();
+        this.refreshEndingGallery();
+        this.startOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(true);
+        this.hudPanel.setVisible(false);
+        this.speakerPanel.setVisible(false);
+        this.choiceOverlay.setVisible(false);
+        this.currentScene = null;
+        this.currentSceneId = "ending_gallery";
+        this.activeBackgroundImage = "bg_archive_room.png";
+        this.activeCharacterImage = DEFAULT_PLAYER_NAME;
+        this.titleLabel.setText("\uc5d4\ub529 \ubaa8\uc74c");
+        this.chapterLabel.setText("ARCHIVE");
+        this.layoutSceneLayers();
+        this.refreshImages();
     }
 
     private void refreshEndingGallery() {
-        galleryListPanel.removeAll();
-        for (String endingId : endingTitles.keySet()) {
-            boolean unlocked = state.seenEndings.contains(endingId);
-            JPanel item = new JPanel();
-            item.setLayout(new BoxLayout(item, BoxLayout.Y_AXIS));
-            item.setOpaque(true);
-            item.setBackground(new Color(70, 77, 90));
-            item.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(111, 121, 139), 1),
-                    new EmptyBorder(12, 12, 12, 12)
-            ));
-
-            JLabel name = new JLabel(unlocked ? applyPlayerName(endingTitles.get(endingId)) : "???");
-            name.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
-            name.setForeground(unlocked ? new Color(224, 229, 236) : ACCENT_SOFT);
-
-            JLabel desc = new JLabel(unlocked ? applyPlayerName(endingDescriptions.get(endingId)) : "아직 확인하지 못한 엔딩");
-            desc.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
-            desc.setForeground(new Color(181, 188, 199));
-
-            item.add(name);
-            item.add(Box.createVerticalStrut(4));
-            item.add(desc);
-
-            galleryListPanel.add(item);
-            galleryListPanel.add(Box.createVerticalStrut(10));
+        this.galleryListPanel.removeAll();
+        for (String string : this.endingTitles.keySet()) {
+            boolean bl = this.state.seenEndings.contains(string);
+            JPanel jPanel = new JPanel();
+            jPanel.setLayout(new BoxLayout(jPanel, 1));
+            jPanel.setOpaque(true);
+            jPanel.setBackground(new Color(70, 77, 90));
+            jPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(111, 121, 139), 1), new EmptyBorder(12, 12, 12, 12)));
+            JLabel jLabel = new JLabel(bl ? this.applyPlayerName(this.endingTitles.get(string)) : "???");
+            jLabel.setFont(new Font("Malgun Gothic", 1, 15));
+            jLabel.setForeground(bl ? new Color(224, 229, 236) : ACCENT_SOFT);
+            JLabel jLabel2 = new JLabel(bl ? this.applyPlayerName(this.endingDescriptions.get(string)) : "\uc544\uc9c1 \ud655\uc778\ud558\uc9c0 \ubabb\ud55c \uc5d4\ub529");
+            jLabel2.setFont(new Font("Malgun Gothic", 0, 12));
+            jLabel2.setForeground(new Color(181, 188, 199));
+            jPanel.add(jLabel);
+            jPanel.add(Box.createVerticalStrut(4));
+            jPanel.add(jLabel2);
+            this.galleryListPanel.add(jPanel);
+            this.galleryListPanel.add(Box.createVerticalStrut(10));
         }
-        galleryListPanel.revalidate();
-        galleryListPanel.repaint();
+        this.galleryListPanel.revalidate();
+        this.galleryListPanel.repaint();
     }
 
-    private void showScene(String id) {
-        // 장면 진입 시 제목/이미지/방문 기록을 갱신하고,
-        // 아래 prepareSceneFlow()에서 텍스트 페이지와 선택지를 준비한다.
-        Scene scene = scenes.get(id);
+    private void showScene(String string) {
+        Scene scene = this.scenes.get(string);
         if (scene == null) {
             return;
         }
-        currentSceneId = id;
-        currentScene = scene;
-        state.visitedScenes.add(id);
+        this.currentSceneId = string;
+        this.currentScene = scene;
+        this.state.visitedScenes.add(string);
         if (scene.onEnter != null) {
-            scene.onEnter.accept(state);
+            scene.onEnter.accept(this.state);
         }
-
-        titleLabel.setText(applyPlayerName(scene.title));
-        chapterLabel.setText(applyPlayerName(scene.chapter));
-        activeBackgroundImage = scene.backgroundImage;
-        activeCharacterImage = scene.characterImage;
-        startOverlay.setVisible(false);
-        galleryOverlay.setVisible(false);
-        hudPanel.setVisible(true);
-        if (isEndingSceneId(id)) {
-            state.seenEndings.add(id);
+        this.titleLabel.setText(this.applyPlayerName(scene.title));
+        this.chapterLabel.setText(this.applyPlayerName(scene.chapter));
+        this.activeBackgroundImage = scene.backgroundImage;
+        this.activeCharacterImage = scene.characterImage;
+        this.startOverlay.setVisible(false);
+        this.galleryOverlay.setVisible(false);
+        this.hudPanel.setVisible(true);
+        if (this.isEndingSceneId(string)) {
+            this.state.seenEndings.add(string);
         }
-        prepareSceneFlow(scene);
-        persistState();
-
-        layoutSceneLayers();
-        refreshImages();
+        this.prepareSceneFlow(scene);
+        this.persistState();
+        this.layoutSceneLayers();
+        this.refreshImages();
         SwingUtilities.invokeLater(() -> {
-            layoutSceneLayers();
-            refreshImages();
-            scenePanel.repaint();
+            this.layoutSceneLayers();
+            this.refreshImages();
+            this.scenePanel.repaint();
         });
     }
 
     private JButton createChoiceButton(Choice choice) {
-        boolean completed = isChoiceCompleted(choice);
-        boolean enabled = choice.isVisible(state) && !completed;
-        String label = applyPlayerName(choice.label);
-        JButton button = new JButton(asWrappedHtml(label, 36));
-        button.setHorizontalAlignment(SwingConstants.CENTER);
-        button.setFocusPainted(false);
-        button.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
-        button.setPreferredSize(new Dimension(320, 56));
-        button.setBackground(enabled ? BUTTON : completed ? new Color(76, 83, 96) : new Color(58, 62, 71));
-        button.setForeground(enabled ? new Color(233, 236, 242) : completed ? new Color(206, 214, 226) : new Color(148, 154, 166));
-        button.setBorder(choiceBorder(
-                enabled ? new Color(108, 118, 136) : completed ? new Color(118, 128, 146) : new Color(86, 92, 104),
-                enabled ? new Color(255, 255, 255, 24) : completed ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10)
-        ));
-        button.setOpaque(true);
-        button.setContentAreaFilled(true);
-        button.setEnabled(enabled);
-        button.addMouseListener(new MouseAdapter() {
+        final boolean bl = this.isChoiceCompleted(choice);
+        final boolean bl2 = choice.isVisible(this.state) && !bl;
+        String string = this.applyPlayerName(choice.label);
+        final JButton jButton = new JButton(this.asWrappedHtml(string, 26));
+        jButton.setHorizontalAlignment(0);
+        jButton.setFocusPainted(false);
+        jButton.setFont(new Font("Malgun Gothic", 1, 14));
+        jButton.setPreferredSize(new Dimension(248, 64));
+        jButton.setBackground(bl2 ? BUTTON : (bl ? new Color(76, 83, 96) : new Color(58, 62, 71)));
+        jButton.setForeground(bl2 ? new Color(233, 236, 242) : (bl ? new Color(206, 214, 226) : new Color(148, 154, 166)));
+        jButton.setBorder(this.choiceBorder(bl2 ? new Color(108, 118, 136) : (bl ? new Color(118, 128, 146) : new Color(86, 92, 104)), bl2 ? new Color(255, 255, 255, 24) : (bl ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10))));
+        jButton.setOpaque(true);
+        jButton.setContentAreaFilled(true);
+        jButton.setEnabled(bl2);
+        jButton.addMouseListener(new MouseAdapter(){
+
             @Override
-            public void mouseEntered(MouseEvent e) {
-                if (!button.isEnabled()) {
+            public void mouseEntered(MouseEvent mouseEvent) {
+                if (!jButton.isEnabled()) {
                     return;
                 }
-                button.setBackground(BUTTON_HOVER);
-                button.setBorder(choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
+                jButton.setBackground(BUTTON_HOVER);
+                jButton.setBorder(Main.this.choiceBorder(ACCENT, new Color(255, 255, 255, 32)));
             }
 
             @Override
-            public void mouseExited(MouseEvent e) {
-                button.setBackground(enabled ? BUTTON : completed ? new Color(76, 83, 96) : new Color(58, 62, 71));
-                button.setBorder(choiceBorder(
-                        enabled ? new Color(108, 118, 136) : completed ? new Color(118, 128, 146) : new Color(86, 92, 104),
-                        enabled ? new Color(255, 255, 255, 24) : completed ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10)
-                ));
+            public void mouseExited(MouseEvent mouseEvent) {
+                jButton.setBackground(bl2 ? BUTTON : (bl ? new Color(76, 83, 96) : new Color(58, 62, 71)));
+                jButton.setBorder(Main.this.choiceBorder(bl2 ? new Color(108, 118, 136) : (bl ? new Color(118, 128, 146) : new Color(86, 92, 104)), bl2 ? new Color(255, 255, 255, 24) : (bl ? new Color(255, 255, 255, 18) : new Color(255, 255, 255, 10))));
             }
         });
-        button.addActionListener(e -> {
-            if (!button.isEnabled()) {
+        jButton.addActionListener(actionEvent -> {
+            if (!jButton.isEnabled()) {
                 return;
             }
-            performChoice(choice);
+            this.performChoice(choice);
         });
-        return button;
+        return jButton;
     }
 
     private boolean isChoiceCompleted(Choice choice) {
         return switch (choice.nextSceneId) {
-            case "pool_intro" -> state.poolSolved;
-            case "music_intro" -> state.musicSolved;
-            case "science_intro" -> state.scienceSolved;
-            case "pool_video", "pool_interview", "pool_facility_log", "pool_review",
-                    "music_record", "music_corridor_witness", "music_torn_sheet", "music_review",
-                    "science_lab", "science_cleanup_record", "science_handwritten_note", "science_review",
-                    "rooftop_gate", "rooftop_prejudice", "rooftop_note",
-                    "pool_reconstruction", "music_reconstruction", "science_reconstruction", "final_verdict" ->
-                    state.visitedScenes.contains(choice.nextSceneId);
-            case "rooftop_intro" -> state.visitedScenes.contains("rooftop_intro");
-            case "final_board" -> state.visitedScenes.contains("final_board");
+            case "pool_intro" -> this.state.poolSolved;
+            case "music_intro" -> this.state.musicSolved;
+            case "science_intro" -> this.state.scienceSolved;
+            case "pool_video", "pool_interview", "pool_facility_log", "pool_review", "music_record", "music_corridor_witness", "music_torn_sheet", "music_review", "science_lab", "science_cleanup_record", "science_handwritten_note", "science_review", "rooftop_gate", "rooftop_prejudice", "rooftop_note", "pool_reconstruction", "music_reconstruction", "science_reconstruction", "final_verdict" -> this.state.visitedScenes.contains(choice.nextSceneId);
+            case "rooftop_intro" -> this.state.visitedScenes.contains("rooftop_intro");
+            case "final_board" -> this.state.visitedScenes.contains("final_board");
             default -> false;
         };
     }
 
-    private Border choiceBorder(Color outer, Color inner) {
-        return BorderFactory.createCompoundBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(outer, 1),
-                        BorderFactory.createLineBorder(inner, 1)
-                ),
-                new EmptyBorder(12, 16, 12, 16)
-        );
+    private Border choiceBorder(Color color, Color color2) {
+        return BorderFactory.createCompoundBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(color, 1), BorderFactory.createLineBorder(color2, 1)), new EmptyBorder(12, 16, 12, 16));
     }
 
     private String buildStatusText() {
-        return "truth=" + state.truthScore
-                + "  suspect=" + state.suspicionScore
-                + "  clues=" + state.clues.size()
-                + "  solved=" + solvedCount() + "/3";
+        return "truth=" + this.state.truthScore + "  suspect=" + this.state.suspicionScore + "  clues=" + this.state.clues.size() + "  solved=" + this.solvedCount() + "/3";
     }
 
     private int solvedCount() {
-        int solved = 0;
-        if (state.poolSolved) {
-            solved++;
+        int n = 0;
+        if (this.state.poolSolved) {
+            ++n;
         }
-        if (state.musicSolved) {
-            solved++;
+        if (this.state.musicSolved) {
+            ++n;
         }
-        if (state.scienceSolved) {
-            solved++;
+        if (this.state.scienceSolved) {
+            ++n;
         }
-        return solved;
+        return n;
     }
 
-    private static boolean hasVisitedAll(GameState state, String... ids) {
-        for (String id : ids) {
-            if (!state.visitedScenes.contains(id)) {
-                return false;
-            }
+    private static boolean hasVisitedAll(GameState gameState, String ... stringArray) {
+        for (String string : stringArray) {
+            if (gameState.visitedScenes.contains(string)) continue;
+            return false;
         }
         return true;
     }
 
-    private static boolean canReviewPool(GameState state) {
-        return hasVisitedAll(state, "pool_video", "pool_interview", "pool_facility_log");
+    private static boolean canReviewPool(GameState gameState) {
+        return Main.hasVisitedAll(gameState, "pool_video", "pool_interview", "pool_facility_log");
     }
 
-    private static boolean canReviewMusic(GameState state) {
-        return hasVisitedAll(state, "music_record", "music_corridor_witness", "music_torn_sheet");
+    private static boolean canReviewMusic(GameState gameState) {
+        return Main.hasVisitedAll(gameState, "music_record", "music_corridor_witness", "music_torn_sheet");
     }
 
-    private static boolean canReviewScience(GameState state) {
-        return hasVisitedAll(state, "science_lab", "science_cleanup_record", "science_handwritten_note");
+    private static boolean canReviewScience(GameState gameState) {
+        return Main.hasVisitedAll(gameState, "science_lab", "science_cleanup_record", "science_handwritten_note");
     }
 
-    private static boolean canReviewFinalBoard(GameState state) {
-        return hasVisitedAll(state, "rooftop_gate", "rooftop_prejudice", "rooftop_note");
+    private static boolean canReviewFinalBoard(GameState gameState) {
+        return Main.hasVisitedAll(gameState, "rooftop_gate", "rooftop_prejudice", "rooftop_note");
     }
 
-    private void startDialogueAnimation(String fullText) {
-        // 타이핑 효과는 Timer로 한 글자씩 storyArea에 추가하는 방식이다.
-        if (dialogueTimer != null && dialogueTimer.isRunning()) {
-            dialogueTimer.stop();
+    private void startDialogueAnimation(String string) {
+        if (this.dialogueTimer != null && this.dialogueTimer.isRunning()) {
+            this.dialogueTimer.stop();
         }
-        storyArea.setText("");
-        pageFullyVisible = false;
-        if (fullText == null || fullText.isEmpty()) {
-            pageFullyVisible = true;
-            continueLabel.setText(visibleChoices.size() > 1 ? "CHOICE" : "END");
+        this.storyArea.setText(DEFAULT_PLAYER_NAME);
+        this.pageFullyVisible = false;
+        if (string == null || string.isEmpty()) {
+            this.pageFullyVisible = true;
             return;
         }
-        final int[] index = {0};
-        dialogueTimer = new Timer(textSpeedMs, e -> {
-            index[0]++;
-            storyArea.setText(fullText.substring(0, index[0]));
-            storyArea.setCaretPosition(storyArea.getDocument().getLength());
-            if (index[0] >= fullText.length()) {
-                pageFullyVisible = true;
-                continueLabel.setText(nextPromptText());
-                ((Timer) e.getSource()).stop();
+        int[] nArray = new int[]{0};
+        this.dialogueTimer = new Timer(this.textSpeedMs, actionEvent -> {
+            nArray[0] = nArray[0] + 1;
+            this.storyArea.setText(string.substring(0, nArray[0]));
+            if (nArray[0] >= string.length()) {
+                this.pageFullyVisible = true;
+                ((Timer)actionEvent.getSource()).stop();
             }
         });
-        dialogueTimer.setInitialDelay(70);
-        dialogueTimer.start();
+        this.dialogueTimer.setInitialDelay(70);
+        this.dialogueTimer.start();
     }
 
     private void enforceMobileAspectRatio() {
-        if (adjustingFrame) {
+        if (this.adjustingFrame) {
             return;
         }
-        int width = getWidth();
-        int height = Math.max(getMinimumSize().height, (int) Math.round(width / MOBILE_ASPECT_RATIO));
-        if (getHeight() == height) {
+        int n = this.getWidth();
+        int n2 = this.getHeight();
+        int n3 = this.getMinimumSize().width;
+        int n4 = this.getMinimumSize().height;
+        int n5 = Math.abs(n - this.lastFrameSize.width);
+        int n6 = Math.abs(n2 - this.lastFrameSize.height);
+        int n7 = n;
+        int n8 = n2;
+        if (n5 >= n6) {
+            n7 = Math.max(n3, n);
+            n8 = Math.max(n4, (int)Math.round((double)n7 / 0.5625));
+        } else {
+            n8 = Math.max(n4, n2);
+            n7 = Math.max(n3, (int)Math.round((double)n8 * 0.5625));
+        }
+        if (this.getWidth() == n7 && this.getHeight() == n8) {
+            this.lastFrameSize = new Dimension(n7, n8);
             return;
         }
-        adjustingFrame = true;
-        setSize(width, height);
-        adjustingFrame = false;
+        this.adjustingFrame = true;
+        this.setSize(n7, n8);
+        this.adjustingFrame = false;
+        this.lastFrameSize = new Dimension(n7, n8);
     }
 
     private void layoutSceneLayers() {
-        int width = Math.max(1, scenePanel.getWidth());
-        int height = Math.max(1, scenePanel.getHeight());
-        backgroundLabel.setBounds(0, 0, width, height);
-        int characterWidth = Math.max(1, (int) Math.round(width * 0.92));
-        int characterHeight = Math.max(1, (int) Math.round(height * 0.92));
-        int characterX = (width - characterWidth) / 2;
-        int characterY = Math.max(0, height - characterHeight);
-        characterLabel.setBounds(characterX, characterY, characterWidth, characterHeight);
-        overlayPanel.setBounds(0, 0, width, height);
-        int storyWidth = Math.max(1, width - (HUD_SIDE_MARGIN * 2));
-        int hudHeight = STORY_PANEL_HEIGHT + HUD_BOTTOM_MARGIN;
-        int hudY = Math.max(0, height - hudHeight);
-        hudPanel.setBounds(0, hudY, width, hudHeight);
-        storyPanel.setBounds(HUD_SIDE_MARGIN, 0, storyWidth, STORY_PANEL_HEIGHT);
-        int speakerWidth = Math.min(Math.max(120, speakerBadge.getPreferredSize().width), Math.max(120, storyWidth - 28));
-        int speakerX = HUD_SIDE_MARGIN + 14;
-        int speakerY = Math.max(12, hudY - SPEAKER_AREA_HEIGHT + 10);
-        speakerPanel.setBounds(speakerX, speakerY, speakerWidth, SPEAKER_AREA_HEIGHT);
-        int textAreaY = 10;
-        int textAreaHeight = Math.max(1, STORY_PANEL_HEIGHT - textAreaY - CONTINUE_AREA_HEIGHT);
-        storyArea.setBounds(0, textAreaY, storyWidth, textAreaHeight);
-        continueLabel.setBounds(0, STORY_PANEL_HEIGHT - CONTINUE_AREA_HEIGHT, storyWidth - 12, CONTINUE_AREA_HEIGHT);
-        startOverlay.setBounds(0, 0, width, height);
-        galleryOverlay.setBounds(0, 0, width, height);
-        int topInset = speakerPanel.isVisible() ? Math.max(12, speakerY + SPEAKER_AREA_HEIGHT + 8) : 12;
-        choiceOverlay.setBorder(new EmptyBorder(topInset, HUD_SIDE_MARGIN, hudHeight + 8, HUD_SIDE_MARGIN));
-        scenePanel.setComponentZOrder(backgroundLabel, 6);
-        scenePanel.setComponentZOrder(characterLabel, 5);
-        scenePanel.setComponentZOrder(overlayPanel, 4);
-        scenePanel.setComponentZOrder(hudPanel, 3);
-        scenePanel.setComponentZOrder(speakerPanel, 2);
-        scenePanel.setComponentZOrder(galleryOverlay, 1);
-        scenePanel.setComponentZOrder(startOverlay, 0);
+        int n = Math.max(1, this.scenePanel.getWidth());
+        int n2 = Math.max(1, this.scenePanel.getHeight());
+        this.backgroundLabel.setBounds(0, 0, n, n2);
+        int n3 = Math.max(1, n - 36);
+        int n4 = 210;
+        int n5 = Math.max(0, n2 - n4);
+        int n6 = 20;
+        int n7 = Math.max(n6 + 80, n5 + 48);
+        int n8 = Math.max(1, n7 - n6);
+        int n9 = Math.max(1, (int)Math.round((double)n * 0.96));
+        int n10 = n8;
+        int n11 = (n - n9) / 2;
+        int n12 = n6;
+        this.characterLabel.setBounds(n11, n12, n9, n10);
+        this.overlayPanel.setBounds(0, 0, n, n2);
+        this.hudPanel.setBounds(0, n5, n, n4);
+        this.storyPanel.setBounds(18, 0, n3, 196);
+        int n13 = Math.min(Math.max(120, this.speakerBadge.getPreferredSize().width), Math.max(120, n3 - 28));
+        int n14 = 32;
+        int n15 = Math.max(12, n5 - 42 + 10);
+        this.speakerPanel.setBounds(n14, n15, n13, 42);
+        this.storyArea.setBounds(0, 6, n3, this.getStoryAreaHeight());
+        this.startOverlay.setBounds(0, 0, n, n2);
+        this.galleryOverlay.setBounds(0, 0, n, n2);
+        int n16 = this.speakerPanel.isVisible() ? Math.max(12, n15 + 42 + 8) : 12;
+        int n17 = Math.max(n16 + 40, n5 - 20);
+        int n18 = Math.max(1, n17 - n16);
+        Dimension dimension = this.choicesPanel.getPreferredSize();
+        int n19 = Math.max(18, (n - dimension.width) / 2);
+        int n20 = n16 + Math.max(0, (n18 - dimension.height) / 2);
+        this.choicesPanel.setBounds(n19, n20, dimension.width, dimension.height);
+        this.scenePanel.setComponentZOrder(this.backgroundLabel, 6);
+        this.scenePanel.setComponentZOrder(this.characterLabel, 5);
+        this.scenePanel.setComponentZOrder(this.speakerPanel, 4);
+        this.scenePanel.setComponentZOrder(this.overlayPanel, 3);
+        this.scenePanel.setComponentZOrder(this.hudPanel, 2);
+        this.scenePanel.setComponentZOrder(this.galleryOverlay, 1);
+        this.scenePanel.setComponentZOrder(this.startOverlay, 0);
+    }
+
+    private int getStoryAreaHeight() {
+        return 196 - 12;
     }
 
     private void refreshImages() {
-        int width = Math.max(1, scenePanel.getWidth());
-        int height = Math.max(1, scenePanel.getHeight());
-        String backgroundImage = activeBackgroundImage == null ? "" : activeBackgroundImage;
-        String characterImage = activeCharacterImage == null ? "" : activeCharacterImage;
-        setImage(backgroundLabel, backgroundImage, width, height, backgroundImage.isEmpty() ? "" : "BG: " + backgroundImage, true);
-        setImage(characterLabel, characterImage, (int) Math.round(width * 0.92), (int) Math.round(height * 0.92),
-                characterImage.isEmpty() ? "" : "CH: " + characterImage, false);
+        int n = Math.max(1, this.scenePanel.getWidth());
+        int n2 = Math.max(1, this.scenePanel.getHeight());
+        String string = this.activeBackgroundImage == null ? DEFAULT_PLAYER_NAME : this.activeBackgroundImage;
+        String string2 = this.activeCharacterImage == null ? DEFAULT_PLAYER_NAME : this.activeCharacterImage;
+        this.setImage(this.backgroundLabel, string, n, n2, (String)(string.isEmpty() ? DEFAULT_PLAYER_NAME : "BG: " + string), true);
+        int n3 = Math.max(0, n2 - 210);
+        int n4 = Math.max(1, n3 + 48 - 20);
+        this.setImage(this.characterLabel, string2, (int)Math.round((double)n * 0.96), n4, (String)(string2.isEmpty() ? DEFAULT_PLAYER_NAME : "CH: " + string2), false);
     }
 
-    private void setImage(JLabel label, String fileName, int targetWidth, int targetHeight, String fallbackText, boolean cover) {
-        if (fileName == null || fileName.isEmpty()) {
-            label.setIcon(null);
-            label.setText(fallbackText == null ? "" : fallbackText);
+    private void setImage(JLabel jLabel, String string, int n, int n2, String string2, boolean bl) {
+        if (string == null || string.isEmpty()) {
+            jLabel.setIcon(null);
+            jLabel.setText(string2 == null ? DEFAULT_PLAYER_NAME : string2);
             return;
         }
         try {
-            BufferedImage image = loadImageCached(fileName);
-            if (image == null) {
-                label.setIcon(null);
-                label.setText(fallbackText);
+            BufferedImage bufferedImage = this.loadImageCached(string);
+            if (bufferedImage == null) {
+                jLabel.setIcon(null);
+                jLabel.setText(string2);
                 return;
             }
-            int imageWidth = image.getWidth();
-            int imageHeight = image.getHeight();
-            double scale = cover
-                    ? Math.max((double) targetWidth / imageWidth, (double) targetHeight / imageHeight)
-                    : Math.min((double) targetWidth / imageWidth, (double) targetHeight / imageHeight);
-            int scaledWidth = Math.max(1, (int) Math.round(imageWidth * scale));
-            int scaledHeight = Math.max(1, (int) Math.round(imageHeight * scale));
-            Image scaled = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
-            label.setIcon(new ImageIcon(scaled));
-            label.setText("");
-        } catch (IOException ex) {
-            label.setIcon(null);
-            label.setText(fallbackText);
+            if (!bl) {
+                bufferedImage = this.trimTransparentEdges(bufferedImage);
+            }
+            int n3 = bufferedImage.getWidth();
+            int n4 = bufferedImage.getHeight();
+            double d = bl ? Math.max((double)n / (double)n3, (double)n2 / (double)n4) : Math.min((double)n / (double)n3, (double)n2 / (double)n4);
+            int n5 = Math.max(1, (int)Math.round((double)n3 * d));
+            int n6 = Math.max(1, (int)Math.round((double)n4 * d));
+            Image image = bufferedImage.getScaledInstance(n5, n6, 4);
+            jLabel.setIcon(new ImageIcon(image));
+            jLabel.setText(DEFAULT_PLAYER_NAME);
+        }
+        catch (IOException iOException) {
+            jLabel.setIcon(null);
+            jLabel.setText(string2);
         }
     }
 
-    private BufferedImage loadImageCached(String fileName) throws IOException {
-        BufferedImage cached = imageCache.get(fileName);
-        if (cached != null) {
-            return cached;
+    private BufferedImage trimTransparentEdges(BufferedImage bufferedImage) {
+        int n = bufferedImage.getWidth();
+        int n2 = bufferedImage.getHeight();
+        int n3 = -1;
+        int n4 = -1;
+        for (int i = 0; i < bufferedImage.getHeight(); ++i) {
+            for (int j = 0; j < bufferedImage.getWidth(); ++j) {
+                int n5 = bufferedImage.getRGB(j, i) >>> 24 & 0xFF;
+                if (n5 <= 8) continue;
+                if (j < n) {
+                    n = j;
+                }
+                if (i < n2) {
+                    n2 = i;
+                }
+                if (j > n3) {
+                    n3 = j;
+                }
+                if (i <= n4) continue;
+                n4 = i;
+            }
         }
-        String path = "assets/images/" + fileName;
-        BufferedImage image = ImageIO.read(new File(path));
-        if (image != null) {
-            imageCache.put(fileName, image);
+        if (n3 < n || n4 < n2) {
+            return bufferedImage;
         }
-        return image;
+        return bufferedImage.getSubimage(n, n2, n3 - n + 1, n4 - n2 + 1);
+    }
+
+    private BufferedImage loadImageCached(String string) throws IOException {
+        BufferedImage bufferedImage = this.imageCache.get(string);
+        if (bufferedImage != null) {
+            return bufferedImage;
+        }
+        String string2 = "assets/images/" + string;
+        BufferedImage bufferedImage2 = ImageIO.read(new File(string2));
+        if (bufferedImage2 != null) {
+            this.imageCache.put(string, bufferedImage2);
+        }
+        return bufferedImage2;
     }
 
     private void prepareSceneFlow(Scene scene) {
-        // 현재 장면에서 실제로 보여줄 선택지와 텍스트 페이지를 계산한다.
-        visibleChoices = collectVisibleChoices(scene);
-        scenePages = buildPages(currentSceneId, scene);
-        currentPageIndex = 0;
-        choiceOverlay.setVisible(false);
-        choicesPanel.removeAll();
-        if (scenePages.isEmpty()) {
-            storyArea.setText("");
-            pageFullyVisible = true;
-            continueLabel.setText(nextPromptText());
-            handleSceneEnd();
+        this.visibleChoices = this.collectVisibleChoices(scene);
+        this.scenePages = this.buildPages(this.currentSceneId, scene);
+        this.currentPageIndex = 0;
+        this.choiceOverlay.setVisible(false);
+        this.choicesPanel.removeAll();
+        if (this.scenePages.isEmpty()) {
+            this.storyArea.setText(DEFAULT_PLAYER_NAME);
+            this.pageFullyVisible = true;
+            this.handleSceneEnd();
             return;
         }
-        showCurrentPage();
+        this.showCurrentPage();
     }
 
     private List<Choice> collectVisibleChoices(Scene scene) {
-        List<Choice> choices = new ArrayList<>();
+        ArrayList<Choice> arrayList = new ArrayList<Choice>();
         for (Choice choice : scene.choices) {
-            if (choice.isVisible(state)) {
-                choices.add(choice);
-            }
+            if (!choice.isVisible(this.state)) continue;
+            arrayList.add(choice);
         }
-        return choices;
+        return arrayList;
     }
 
-    private List<PageEntry> buildPages(String sceneId, Scene scene) {
-        // 한 장면의 텍스트를 "한 번에 보여줄 페이지" 목록으로 자른다.
-        // 내레이션과 대사는 같은 장면 안에 있어도 서로 다른 페이지가 된다.
-        List<PageEntry> pages = new ArrayList<>();
-        String narrationCharacterImage = narrationCharacterHiddenScenes.contains(sceneId) ? "" : scene.characterImage;
+    private List<PageEntry> buildPages(String string, Scene scene) {
+        ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
+        if (!scene.pages.isEmpty()) {
+            for (PageSpec pageSpec : scene.pages) {
+                String string2 = pageSpec.backgroundImage == null || pageSpec.backgroundImage.isBlank() ? scene.backgroundImage : pageSpec.backgroundImage;
+                String string3 = pageSpec.speaker == null ? DEFAULT_PLAYER_NAME : pageSpec.speaker.strip();
+                String string4 = this.resolvePageCharacterImage(pageSpec.text, string3, pageSpec.characterImage);
+                arrayList.addAll(this.splitIntoPages(pageSpec.text, string3, string2, string4));
+            }
+            return arrayList;
+        }
         if (scene.narration != null && !scene.narration.isBlank()) {
-            pages.addAll(splitIntoPages(scene.narration, "", scene.backgroundImage, narrationCharacterImage));
+            arrayList.addAll(this.splitIntoPages(scene.narration, DEFAULT_PLAYER_NAME, scene.backgroundImage, DEFAULT_PLAYER_NAME));
         }
         if (scene.dialogue != null && !scene.dialogue.isBlank()) {
-            pages.addAll(splitIntoPages(scene.dialogue, scene.speaker, scene.backgroundImage, scene.characterImage));
+            arrayList.addAll(this.splitIntoPages(scene.dialogue, scene.speaker, scene.backgroundImage, scene.characterImage));
         }
-        return pages;
+        return arrayList;
     }
 
-    private List<PageEntry> splitIntoPages(String text, String speaker, String backgroundImage, String characterImage) {
-        // 문장을 1~2개씩 묶어서 한 페이지를 만든다.
-        // 너무 긴 문장은 MAX_PAGE_CHARS 기준으로 다음 페이지로 넘긴다.
-        List<PageEntry> pages = new ArrayList<>();
-        List<String> sentences = new ArrayList<>();
-        Matcher matcher = SENTENCE_PATTERN.matcher(applyPlayerName(text).strip());
+    private String resolvePageCharacterImage(String string, String string2, String string3) {
+        if (string3 != null && !string3.isBlank()) {
+            return string3;
+        }
+        if (string2 != null && !string2.isBlank()) {
+            return this.characterImageForSpeaker(string2);
+        }
+        return this.inferNarrationCharacterImage(string);
+    }
+
+    private String characterImageForSpeaker(String string) {
+        return switch (string == null ? DEFAULT_PLAYER_NAME : string.strip()) {
+            case "\ud50c\ub808\uc774\uc5b4" -> "ch_player.png";
+            case "\uad50\uc7a5" -> "ch_principal.png";
+            case "\uc591\uc9c0\uc601" -> "ch_yang_jiyeong.png";
+            case "\uae40\ud604\uc9c4", "\ud604\uc9c4" -> "ch_kim_hyeonjin.png";
+            case "\uc8fc\ub2e4\uc601", "\ub2e4\uc601" -> "ch_ju_dayeong.png";
+            case "\ud55c\uc2b9\uc900", "\uc2b9\uc900" -> "ch_han_seungjun.png";
+            case "\uae40\uc900\uc601", "\uc900\uc601" -> "ch_kim_junyeong.png";
+            case "\uae40\ud0dc\ud615", "\ud0dc\ud615" -> "ch_kim_taehyeong.png";
+            default -> DEFAULT_PLAYER_NAME;
+        };
+    }
+
+    private String inferNarrationCharacterImage(String string) {
+        if (string == null || string.isBlank()) {
+            return DEFAULT_PLAYER_NAME;
+        }
+        String string2 = this.applyPlayerName(string);
+        LinkedHashMap<String, String> linkedHashMap = new LinkedHashMap<String, String>();
+        this.collectNarrationMention(linkedHashMap, string2, "\uc591\uc9c0\uc601", "ch_yang_jiyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uae40\ud604\uc9c4", "ch_kim_hyeonjin.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\ud604\uc9c4", "ch_kim_hyeonjin.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uc8fc\ub2e4\uc601", "ch_ju_dayeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\ub2e4\uc601", "ch_ju_dayeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\ud55c\uc2b9\uc900", "ch_han_seungjun.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uc2b9\uc900", "ch_han_seungjun.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uae40\uc900\uc601", "ch_kim_junyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uc900\uc601", "ch_kim_junyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uae40\ud0dc\ud615", "ch_kim_taehyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\ud0dc\ud615", "ch_kim_taehyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "\uad50\uc7a5", "ch_principal.png");
+        if (linkedHashMap.size() == 1) {
+            return (String)linkedHashMap.values().iterator().next();
+        }
+        return DEFAULT_PLAYER_NAME;
+    }
+
+    private void collectNarrationMention(Map<String, String> map, String string, String string2, String string3) {
+        if (string.contains(string2)) {
+            map.put(string3, string3);
+        }
+    }
+
+    private List<PageEntry> splitIntoPages(String string, String string2, String string3, String string4) {
+        ArrayList<PageEntry> arrayList = new ArrayList<PageEntry>();
+        ArrayList<String> arrayList2 = new ArrayList<String>();
+        Matcher matcher = SENTENCE_PATTERN.matcher(this.applyPlayerName(string).strip());
         while (matcher.find()) {
-            String token = matcher.group().trim();
-            if (!token.isEmpty()) {
-                sentences.add(token);
-            }
+            String string5 = matcher.group().trim();
+            if (string5.isEmpty()) continue;
+            arrayList2.add(string5);
         }
-
-        if (sentences.isEmpty()) {
-            return pages;
+        if (arrayList2.isEmpty()) {
+            return arrayList;
         }
-
-        StringBuilder page = new StringBuilder();
-        int sentenceCount = 0;
-        for (String sentence : sentences) {
-            int projectedLength = page.length() + sentence.length() + (page.length() > 0 ? 1 : 0);
-            if (page.length() > 0 && (sentenceCount >= 2 || projectedLength > MAX_PAGE_CHARS)) {
-                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
-                page.setLength(0);
-                sentenceCount = 0;
+        int n = Math.max(1, this.getStoryTextLineCapacity());
+        StringBuilder stringBuilder = new StringBuilder();
+        for (String string6 : arrayList2) {
+            String string7;
+            String string8 = string7 = stringBuilder.length() > 0 ? String.valueOf(stringBuilder) + " " + string6 : string6;
+            if (this.countWrappedLines(string7) <= n) {
+                if (stringBuilder.length() > 0) {
+                    stringBuilder.append(' ');
+                }
+                stringBuilder.append(string6);
+                continue;
             }
-            if (page.length() > 0) {
-                page.append(' ');
+            if (stringBuilder.length() > 0) {
+                arrayList.add(new PageEntry(stringBuilder.toString(), string2 == null ? DEFAULT_PLAYER_NAME : string2.strip(), string3, string4));
+                stringBuilder.setLength(0);
             }
-            page.append(sentence);
-            sentenceCount++;
-            if (sentenceCount == 2 && page.length() >= MAX_PAGE_CHARS / 2) {
-                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
-                page.setLength(0);
-                sentenceCount = 0;
+            List<String> list = this.splitOversizeText(string6, n);
+            for (int i = 0; i < list.size() - 1; ++i) {
+                arrayList.add(new PageEntry(list.get(i), string2 == null ? DEFAULT_PLAYER_NAME : string2.strip(), string3, string4));
             }
+            if (list.isEmpty()) continue;
+            stringBuilder.append(list.get(list.size() - 1));
         }
-
-        if (page.length() > 0) {
-            pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
+        if (stringBuilder.length() > 0) {
+            arrayList.add(new PageEntry(stringBuilder.toString(), string2 == null ? DEFAULT_PLAYER_NAME : string2.strip(), string3, string4));
         }
-        return pages;
+        return arrayList;
     }
 
-    private String applyPlayerName(String text) {
-        String name = state.playerName == null || state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : state.playerName.strip();
-        return text.replace("플레이어", name);
+    private int getStoryTextLineCapacity() {
+        FontMetrics fontMetrics = this.storyArea.getFontMetrics(this.storyArea.getFont());
+        Insets insets = this.storyArea.getInsets();
+        int n = Math.max(1, this.getStoryAreaHeight() - insets.top - insets.bottom - 16);
+        return Math.max(1, n / Math.max(1, fontMetrics.getHeight()) - 1);
+    }
+
+    private int getStoryTextWidth() {
+        Insets insets = this.storyArea.getInsets();
+        int n = this.scenePanel.getWidth();
+        if (n <= 0) {
+            n = this.getContentPane().getWidth();
+        }
+        if (n <= 0) {
+            n = this.getWidth();
+        }
+        int n2 = Math.max(1, n - 36);
+        return Math.max(1, n2 - insets.left - insets.right);
+    }
+
+    private int countWrappedLines(String string) {
+        if (string == null || string.isBlank()) {
+            return 1;
+        }
+        int n = this.getStoryTextWidth();
+        FontRenderContext fontRenderContext = new FontRenderContext(null, true, true);
+        int n2 = 0;
+        for (String string2 : string.split("\\n", -1)) {
+            if (string2.isEmpty()) {
+                ++n2;
+                continue;
+            }
+            AttributedString attributedString = new AttributedString(string2);
+            attributedString.addAttribute(TextAttribute.FONT, this.storyArea.getFont());
+            LineBreakMeasurer lineBreakMeasurer = new LineBreakMeasurer(attributedString.getIterator(), fontRenderContext);
+            while (lineBreakMeasurer.getPosition() < string2.length()) {
+                lineBreakMeasurer.nextLayout(n);
+                ++n2;
+            }
+        }
+        return Math.max(1, n2);
+    }
+
+    private List<String> splitOversizeText(String string, int n) {
+        String string2;
+        ArrayList<String> arrayList = new ArrayList<String>();
+        String string3 = string2 = string == null ? DEFAULT_PLAYER_NAME : string.strip();
+        while (!string2.isEmpty()) {
+            String string4;
+            int n2;
+            int n3 = 1;
+            int n4 = string2.length();
+            int n5 = 1;
+            while (n3 <= n4) {
+                n2 = (n3 + n4) / 2;
+                string4 = string2.substring(0, n2).strip();
+                if (string4.isEmpty()) {
+                    n3 = n2 + 1;
+                    continue;
+                }
+                if (this.countWrappedLines(string4) <= n && string4.length() <= 144) {
+                    n5 = n2;
+                    n3 = n2 + 1;
+                    continue;
+                }
+                n4 = n2 - 1;
+            }
+            n2 = this.findReadableSplitIndex(string2, n5);
+            string4 = string2.substring(0, n2).strip();
+            if (string4.isEmpty()) {
+                string4 = string2.substring(0, Math.min(1, string2.length()));
+                n2 = string4.length();
+            }
+            arrayList.add(string4);
+            string2 = string2.substring(n2).strip();
+        }
+        return arrayList;
+    }
+
+    private int findReadableSplitIndex(String string, int n) {
+        int n2;
+        for (int i = n2 = Math.max(1, Math.min(n, string.length())); i > Math.max(1, n2 - 12); --i) {
+            char c = string.charAt(i - 1);
+            if (!Character.isWhitespace(c) && c != ',' && c != '.' && c != '!' && c != '?') continue;
+            return i;
+        }
+        return n2;
+    }
+
+    private String applyPlayerName(String string) {
+        String string2 = this.state.playerName == null || this.state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : this.state.playerName.strip();
+        return string.replace("\ud50c\ub808\uc774\uc5b4", string2);
     }
 
     private void showCurrentPage() {
-        currentPage = scenePages.get(currentPageIndex);
-        activeBackgroundImage = currentPage.backgroundImage();
-        activeCharacterImage = currentPage.characterImage();
-        refreshImages();
-        updateSpeakerBadge();
-        layoutSceneLayers();
-        continueLabel.setText(pageFullyVisible ? nextPromptText() : "...");
-        startDialogueAnimation(currentPage.text());
+        this.currentPage = this.scenePages.get(this.currentPageIndex);
+        this.activeBackgroundImage = this.currentPage.backgroundImage();
+        this.activeCharacterImage = this.currentPage.characterImage();
+        this.refreshImages();
+        this.updateSpeakerBadge();
+        this.layoutSceneLayers();
+        this.startDialogueAnimation(this.currentPage.text());
     }
 
     private void advanceStory() {
-        // 클릭 시 동작 순서:
-        // 1) 아직 타이핑 중이면 즉시 전체 문장 표시
-        // 2) 다음 페이지가 있으면 다음 페이지로 이동
-        // 3) 마지막 페이지면 선택지 또는 엔딩 처리
-        if (choiceOverlay.isVisible()) {
+        if (this.choiceOverlay.isVisible()) {
             return;
         }
-        if (dialogueTimer != null && dialogueTimer.isRunning() && !pageFullyVisible) {
-            revealCurrentPageImmediately();
+        if (this.dialogueTimer != null && this.dialogueTimer.isRunning() && !this.pageFullyVisible) {
+            this.revealCurrentPageImmediately();
             return;
         }
-        if (currentPageIndex + 1 < scenePages.size()) {
-            currentPageIndex++;
-            showCurrentPage();
+        if (this.currentPageIndex + 1 < this.scenePages.size()) {
+            ++this.currentPageIndex;
+            this.showCurrentPage();
             return;
         }
-        handleSceneEnd();
+        this.handleSceneEnd();
     }
 
     private void revealCurrentPageImmediately() {
-        if (dialogueTimer != null && dialogueTimer.isRunning()) {
-            dialogueTimer.stop();
+        if (this.dialogueTimer != null && this.dialogueTimer.isRunning()) {
+            this.dialogueTimer.stop();
         }
-        storyArea.setText(currentPage.text());
-        storyArea.setCaretPosition(storyArea.getDocument().getLength());
-        pageFullyVisible = true;
-        continueLabel.setText(nextPromptText());
+        this.storyArea.setText(this.currentPage.text());
+        this.pageFullyVisible = true;
     }
 
     private void handleSceneEnd() {
-        if (isEndingScene()) {
-            showRestartOverlay();
+        if (this.isEndingScene()) {
+            this.showRestartOverlay();
             return;
         }
-        if (currentScene == null || currentScene.choices.isEmpty()) {
-            continueLabel.setText("END");
+        if (this.currentScene == null || this.currentScene.choices.isEmpty()) {
             return;
         }
-        if (visibleChoices.size() == 1) {
-            performChoice(visibleChoices.get(0));
+        if (this.visibleChoices.size() == 1) {
+            this.performChoice(this.visibleChoices.get(0));
             return;
         }
-        showChoicesOverlay();
+        this.showChoicesOverlay();
     }
 
     private void performChoice(Choice choice) {
-        choice.effect.accept(state);
+        choice.effect.accept(this.state);
         if (choice.recordsSuspicion) {
-            state.suspectHistory.add(choice.label);
+            this.state.suspectHistory.add(choice.label);
         }
-        persistState();
-        showScene(choice.nextSceneId);
+        this.persistState();
+        this.showScene(choice.nextSceneId);
     }
 
     private void showChoicesOverlay() {
-        choicesPanel.removeAll();
-        for (Choice choice : currentScene.choices) {
-            choicesPanel.add(createChoiceButton(choice));
+        boolean bl;
+        this.choicesPanel.removeAll();
+        int n = this.currentScene.choices.size();
+        boolean bl2 = bl = n <= 1;
+        if (!bl) {
+            for (Choice choice : this.currentScene.choices) {
+                if (this.applyPlayerName(choice.label).length() < 12) continue;
+                bl = true;
+                break;
+            }
         }
-        choicesPanel.revalidate();
-        choicesPanel.repaint();
-        choiceOverlay.setVisible(true);
-        continueLabel.setText("CHOICE");
+        int n2 = bl ? 1 : 2;
+        int n3 = (int)Math.ceil((double)n / (double)n2);
+        this.choicesPanel.setLayout(new GridLayout(n3, n2, 12, 12));
+        for (Choice choice : this.currentScene.choices) {
+            this.choicesPanel.add(this.createChoiceButton(choice));
+        }
+        int n4 = n2 == 1 ? 280 : 180;
+        int n5 = n2 == 1 ? n4 : n4 * 2 + 12;
+        int n6 = n3 * 64 + (n3 - 1) * 12 + 32;
+        this.choicesPanel.setPreferredSize(new Dimension(n5, n6));
+        this.choicesPanel.revalidate();
+        this.choicesPanel.repaint();
+        this.choiceOverlay.setVisible(true);
     }
 
     private void showRestartOverlay() {
-        choicesPanel.removeAll();
-        JButton restartButton = createMenuButton("다시 시작", this::showStartScreen);
-        restartButton.setHorizontalAlignment(SwingConstants.CENTER);
-        choicesPanel.add(restartButton);
-        choicesPanel.revalidate();
-        choicesPanel.repaint();
-        choiceOverlay.setVisible(true);
-        continueLabel.setText("RESTART");
+        this.choicesPanel.removeAll();
+        this.choicesPanel.setLayout(new GridLayout(1, 1, 0, 0));
+        JButton jButton = this.createMenuButton("\ub2e4\uc2dc \uc2dc\uc791", this::showStartScreen);
+        jButton.setHorizontalAlignment(0);
+        jButton.setPreferredSize(new Dimension(220, 58));
+        this.choicesPanel.add(jButton);
+        this.choicesPanel.setPreferredSize(new Dimension(220, 58));
+        this.choicesPanel.revalidate();
+        this.choicesPanel.repaint();
+        this.choiceOverlay.setVisible(true);
     }
 
     private void updateSpeakerBadge() {
-        if (currentScene == null) {
-            speakerBadge.setText(" ");
-            speakerBadge.setVisible(false);
+        if (this.currentScene == null) {
+            this.speakerBadge.setText(" ");
+            this.speakerBadge.setVisible(false);
+            this.speakerPanel.setVisible(false);
             return;
         }
-        String speaker = currentPage.speaker();
-        boolean hasSpeaker = speaker != null && !speaker.isBlank();
-        speakerBadge.setText(hasSpeaker ? applyPlayerName(speaker.strip()) : " ");
-        speakerBadge.setVisible(hasSpeaker);
+        String string = this.currentPage.speaker();
+        boolean bl = string != null && !string.isBlank();
+        boolean bl2 = this.currentPage.characterImage() != null && !this.currentPage.characterImage().isBlank();
+        boolean bl3 = bl && bl2;
+        this.speakerBadge.setText(bl3 ? this.applyPlayerName(string.strip()) : " ");
+        this.speakerBadge.setVisible(bl3);
+        this.speakerPanel.setVisible(bl3);
     }
 
     private boolean isEndingScene() {
-        return isEndingSceneId(currentSceneId);
+        return this.isEndingSceneId(this.currentSceneId);
     }
 
-    private boolean isEndingSceneId(String id) {
-        return id != null && id.startsWith("ending_");
+    private boolean isEndingSceneId(String string) {
+        return string != null && string.startsWith("ending_");
     }
 
-    private String asWrappedHtml(String text, int widthEm) {
-        String safe = text
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("\n", "<br>");
-        return "<html><div style='width:" + widthEm + "em; text-align:center;'>" + safe + "</div></html>";
+    private String asWrappedHtml(String string, int n) {
+        String string2 = string.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("\n", "<br>");
+        return "<html><div style='width:" + n + "em; text-align:center;'>" + string2 + "</div></html>";
     }
 
-    private String nextPromptText() {
-        if (currentPageIndex + 1 < scenePages.size()) {
-            return "NEXT";
-        }
-        if (currentScene != null && !currentScene.choices.isEmpty()) {
-            return "CHOICE";
-        }
-        return "END";
-    }
-
-    public static void main(String[] args) {
+    public static void main(String[] stringArray) {
         SwingUtilities.invokeLater(() -> new Main().setVisible(true));
+    }
+
+    private static final class StoryTextPanel
+    extends JComponent {
+        private String text = "";
+
+        private StoryTextPanel() {
+        }
+
+        void setText(String string) {
+            this.text = string == null ? Main.DEFAULT_PLAYER_NAME : string;
+            this.repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            Graphics2D graphics2D = (Graphics2D)graphics.create();
+            graphics2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            graphics2D.setColor(this.getForeground());
+            graphics2D.setFont(this.getFont());
+            Insets insets = this.getInsets();
+            int n = insets.left;
+            int n2 = insets.top;
+            int n3 = Math.max(1, this.getWidth() - insets.left - insets.right);
+            FontMetrics fontMetrics = graphics2D.getFontMetrics();
+            for (String string : this.text.split("\\n", -1)) {
+                if (string.isEmpty()) {
+                    n2 += fontMetrics.getHeight();
+                    continue;
+                }
+                AttributedString attributedString = new AttributedString(string);
+                attributedString.addAttribute(TextAttribute.FONT, this.getFont());
+                LineBreakMeasurer lineBreakMeasurer = new LineBreakMeasurer(attributedString.getIterator(), graphics2D.getFontRenderContext());
+                while (lineBreakMeasurer.getPosition() < string.length()) {
+                    TextLayout textLayout = lineBreakMeasurer.nextLayout(n3);
+                    n2 = (int)((float)n2 + textLayout.getAscent());
+                    textLayout.draw(graphics2D, n, n2);
+                    n2 = (int)((float)n2 + (textLayout.getDescent() + textLayout.getLeading()));
+                }
+            }
+            graphics2D.dispose();
+        }
     }
 
     private static class GameState {
@@ -1896,42 +1520,84 @@ public class Main extends JFrame {
         int truthScore;
         int suspicionScore;
         String finalChoice = "";
-        String playerName = DEFAULT_PLAYER_NAME;
-        final Set<String> seenEndings = new LinkedHashSet<>();
-        final Set<String> clues = new LinkedHashSet<>();
-        final Set<String> visitedScenes = new LinkedHashSet<>();
-        final List<String> suspectHistory = new ArrayList<>();
-        final Map<String, String> evidenceBoard = new LinkedHashMap<>();
+        String playerName = "";
+        final Set<String> seenEndings = new LinkedHashSet<String>();
+        final Set<String> clues = new LinkedHashSet<String>();
+        final Set<String> visitedScenes = new LinkedHashSet<String>();
+        final List<String> suspectHistory = new ArrayList<String>();
+        final Map<String, String> evidenceBoard = new LinkedHashMap<String, String>();
 
-        void unlockClue(String clueName) {
-            if (clues.add(clueName)) {
-                evidenceBoard.put(clueName, "확보");
+        private GameState() {
+        }
+
+        void unlockClue(String string) {
+            if (this.clues.add(string)) {
+                this.evidenceBoard.put(string, "\ud655\ubcf4");
             }
         }
 
         void resetForNewRun() {
-            poolSolved = false;
-            musicSolved = false;
-            scienceSolved = false;
-            truthScore = 0;
-            suspicionScore = 0;
-            finalChoice = "";
-            clues.clear();
-            visitedScenes.clear();
-            suspectHistory.clear();
-            evidenceBoard.clear();
+            this.poolSolved = false;
+            this.musicSolved = false;
+            this.scienceSolved = false;
+            this.truthScore = 0;
+            this.suspicionScore = 0;
+            this.finalChoice = Main.DEFAULT_PLAYER_NAME;
+            this.clues.clear();
+            this.visitedScenes.clear();
+            this.suspectHistory.clear();
+            this.evidenceBoard.clear();
         }
 
         void reset() {
-            resetForNewRun();
-            playerName = DEFAULT_PLAYER_NAME;
-            seenEndings.clear();
+            this.resetForNewRun();
+            this.playerName = Main.DEFAULT_PLAYER_NAME;
+            this.seenEndings.clear();
         }
     }
 
+    private record PageEntry(String text, String speaker, String backgroundImage, String characterImage) {
+        private static PageEntry empty() {
+            return new PageEntry(Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME, Main.DEFAULT_PLAYER_NAME);
+        }
+    }
+
+    private static class LengthFilter
+    extends DocumentFilter {
+        private final int maxLength;
+
+        LengthFilter(int n) {
+            this.maxLength = n;
+        }
+
+        @Override
+        public void insertString(DocumentFilter.FilterBypass filterBypass, int n, String string, AttributeSet attributeSet) throws BadLocationException {
+            if (string == null) {
+                return;
+            }
+            this.replace(filterBypass, n, 0, string, attributeSet);
+        }
+
+        @Override
+        public void replace(DocumentFilter.FilterBypass filterBypass, int n, int n2, String string, AttributeSet attributeSet) throws BadLocationException {
+            String string2 = string == null ? Main.DEFAULT_PLAYER_NAME : string;
+            int n3 = filterBypass.getDocument().getLength();
+            int n4 = n3 - n2 + string2.length();
+            if (n4 <= this.maxLength) {
+                super.replace(filterBypass, n, n2, string2, attributeSet);
+                return;
+            }
+            int n5 = this.maxLength - (n3 - n2);
+            if (n5 > 0) {
+                super.replace(filterBypass, n, n2, string2.substring(0, n5), attributeSet);
+            }
+        }
+    }
+
+    private record SceneDefinition(String id, String title, String chapter, String narration, String speaker, String dialogue, String backgroundImage, String characterImage, String onEnter, List<PageDefinition> pages, List<ChoiceDefinition> choices) {
+    }
+
     private static class Scene {
-        // Scene은 "한 장면에 필요한 데이터 묶음"이다.
-        // 텍스트, 화자, 이미지, 선택지, 진입 시 실행할 로직을 함께 가진다.
         final String title;
         final String chapter;
         final String narration;
@@ -1939,79 +1605,250 @@ public class Main extends JFrame {
         final String dialogue;
         final String backgroundImage;
         final String characterImage;
+        final List<PageSpec> pages;
         final List<Choice> choices;
         final String bgm;
         final String sfx;
         final String transition;
         final Consumer<GameState> onEnter;
 
-        Scene(String title, String chapter, String narration, String speaker, String dialogue,
-              String backgroundImage, String characterImage, List<Choice> choices, Consumer<GameState> onEnter) {
-            this(title, chapter, narration, speaker, dialogue, backgroundImage, characterImage, choices, "ambient_night", "", "fade", onEnter);
+        Scene(String string, String string2, String string3, String string4, String string5, String string6, String string7, List<PageSpec> list, List<Choice> list2, Consumer<GameState> consumer) {
+            this(string, string2, string3, string4, string5, string6, string7, list, list2, "ambient_night", Main.DEFAULT_PLAYER_NAME, "fade", consumer);
         }
 
-        Scene(String title, String chapter, String narration, String speaker, String dialogue,
-              String backgroundImage, String characterImage, List<Choice> choices,
-              String bgm, String sfx, String transition, Consumer<GameState> onEnter) {
-            this.title = title;
-            this.chapter = chapter;
-            this.narration = narration;
-            this.speaker = speaker;
-            this.dialogue = dialogue;
-            this.backgroundImage = backgroundImage;
-            this.characterImage = characterImage;
-            this.choices = choices;
-            this.bgm = bgm;
-            this.sfx = sfx;
-            this.transition = transition;
-            this.onEnter = onEnter;
+        Scene(String string, String string2, String string3, String string4, String string5, String string6, String string7, List<PageSpec> list, List<Choice> list2, String string8, String string9, String string10, Consumer<GameState> consumer) {
+            this.title = string;
+            this.chapter = string2;
+            this.narration = string3;
+            this.speaker = string4;
+            this.dialogue = string5;
+            this.backgroundImage = string6;
+            this.characterImage = string7;
+            this.pages = list;
+            this.choices = list2;
+            this.bgm = string8;
+            this.sfx = string9;
+            this.transition = string10;
+            this.onEnter = consumer;
         }
     }
 
+    private static final class SimpleJsonParser {
+        private final String source;
+        private int index;
+
+        private SimpleJsonParser(String string) {
+            this.source = string;
+        }
+
+        private Object parse() {
+            this.skipWhitespace();
+            Object object = this.parseValue();
+            this.skipWhitespace();
+            if (this.index != this.source.length()) {
+                throw this.error("JSON \ub05d\uc5d0 \ubd88\ud544\uc694\ud55c \ubb38\uc790\uac00 \ub0a8\uc544 \uc788\uc2b5\ub2c8\ub2e4.");
+            }
+            return object;
+        }
+
+        private Object parseValue() {
+            this.skipWhitespace();
+            if (this.index >= this.source.length()) {
+                throw this.error("\uac12\uc774 \ud544\uc694\ud55c \uc704\uce58\uc5d0\uc11c JSON\uc774 \ub05d\ub0ac\uc2b5\ub2c8\ub2e4.");
+            }
+            char c = this.source.charAt(this.index);
+            return switch (c) {
+                case '{' -> this.parseObject();
+                case '[' -> this.parseArray();
+                case '\"' -> this.parseString();
+                case 't' -> this.parseLiteral("true", Boolean.TRUE);
+                case 'f' -> this.parseLiteral("false", Boolean.FALSE);
+                case 'n' -> this.parseLiteral("null", null);
+                default -> throw this.error("\uc9c0\uc6d0\ud558\uc9c0 \uc54a\ub294 JSON \uac12 \uc2dc\uc791 \ubb38\uc790: " + c);
+            };
+        }
+
+        private Map<String, Object> parseObject() {
+            LinkedHashMap<String, Object> linkedHashMap = new LinkedHashMap<String, Object>();
+            this.expect('{');
+            this.skipWhitespace();
+            if (this.peek('}')) {
+                ++this.index;
+                return linkedHashMap;
+            }
+            while (true) {
+                String string = this.parseString();
+                this.skipWhitespace();
+                this.expect(':');
+                linkedHashMap.put(string, this.parseValue());
+                this.skipWhitespace();
+                if (this.peek('}')) {
+                    ++this.index;
+                    return linkedHashMap;
+                }
+                this.expect(',');
+            }
+        }
+
+        private List<Object> parseArray() {
+            ArrayList<Object> arrayList = new ArrayList<Object>();
+            this.expect('[');
+            this.skipWhitespace();
+            if (this.peek(']')) {
+                ++this.index;
+                return arrayList;
+            }
+            while (true) {
+                arrayList.add(this.parseValue());
+                this.skipWhitespace();
+                if (this.peek(']')) {
+                    ++this.index;
+                    return arrayList;
+                }
+                this.expect(',');
+            }
+        }
+
+        private String parseString() {
+            this.expect('\"');
+            StringBuilder stringBuilder = new StringBuilder();
+            block9: while (this.index < this.source.length()) {
+                char c;
+                if ((c = this.source.charAt(this.index++)) == '\"') {
+                    return stringBuilder.toString();
+                }
+                if (c == '\\') {
+                    if (this.index >= this.source.length()) {
+                        throw this.error("\ubb38\uc790\uc5f4 escape\uac00 \uc911\uac04\uc5d0 \ub05d\ub0ac\uc2b5\ub2c8\ub2e4.");
+                    }
+                    char c2 = this.source.charAt(this.index++);
+                    switch (c2) {
+                        case '\"': 
+                        case '/': 
+                        case '\\': {
+                            stringBuilder.append(c2);
+                            continue block9;
+                        }
+                        case 'b': {
+                            stringBuilder.append('\b');
+                            continue block9;
+                        }
+                        case 'f': {
+                            stringBuilder.append('\f');
+                            continue block9;
+                        }
+                        case 'n': {
+                            stringBuilder.append('\n');
+                            continue block9;
+                        }
+                        case 'r': {
+                            stringBuilder.append('\r');
+                            continue block9;
+                        }
+                        case 't': {
+                            stringBuilder.append('\t');
+                            continue block9;
+                        }
+                        case 'u': {
+                            stringBuilder.append(this.parseUnicodeEscape());
+                            continue block9;
+                        }
+                    }
+                    throw this.error("\uc9c0\uc6d0\ud558\uc9c0 \uc54a\ub294 escape \ubb38\uc790: " + c2);
+                }
+                stringBuilder.append(c);
+            }
+            throw this.error("\ubb38\uc790\uc5f4\uc774 \ub2eb\ud788\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.");
+        }
+
+        private char parseUnicodeEscape() {
+            if (this.index + 4 > this.source.length()) {
+                throw this.error("\uc720\ub2c8\ucf54\ub4dc escape \uae38\uc774\uac00 \ubd80\uc871\ud569\ub2c8\ub2e4.");
+            }
+            String string = this.source.substring(this.index, this.index + 4);
+            this.index += 4;
+            try {
+                return (char)Integer.parseInt(string, 16);
+            }
+            catch (NumberFormatException numberFormatException) {
+                throw this.error("\uc720\ud6a8\ud558\uc9c0 \uc54a\uc740 \uc720\ub2c8\ucf54\ub4dc escape: " + string);
+            }
+        }
+
+        private Object parseLiteral(String string, Object object) {
+            if (!this.source.startsWith(string, this.index)) {
+                throw this.error("\uc608\uc0c1\ud55c \ub9ac\ud130\ub7f4\uc774 \uc544\ub2d9\ub2c8\ub2e4: " + string);
+            }
+            this.index += string.length();
+            return object;
+        }
+
+        private void skipWhitespace() {
+            while (this.index < this.source.length() && Character.isWhitespace(this.source.charAt(this.index))) {
+                ++this.index;
+            }
+        }
+
+        private void expect(char c) {
+            this.skipWhitespace();
+            if (this.index >= this.source.length() || this.source.charAt(this.index) != c) {
+                throw this.error("\uc608\uc0c1\ud55c \ubb38\uc790 '" + c + "'\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.");
+            }
+            ++this.index;
+        }
+
+        private boolean peek(char c) {
+            return this.index < this.source.length() && this.source.charAt(this.index) == c;
+        }
+
+        private IllegalArgumentException error(String string) {
+            return new IllegalArgumentException(string + " (index=" + this.index + ")");
+        }
+    }
+
+    private record ChoiceDefinition(String label, String nextSceneId, String effect, String visibility, boolean recordsSuspicion) {
+    }
+
+    private record PageDefinition(String text, String speaker, String backgroundImage, String characterImage) {
+    }
+
     private static class Choice {
-        // Choice는 버튼 하나의 데이터다.
-        // label: 버튼 글자, nextSceneId: 이동할 장면, effect: 상태값 변경 로직
         final String label;
         final String nextSceneId;
         final Consumer<GameState> effect;
         final Predicate<GameState> visibility;
         final boolean recordsSuspicion;
 
-        Choice(String label, String nextSceneId) {
-            this(label, nextSceneId, g -> {}, g -> true, false);
+        Choice(String string, String string2) {
+            this(string, string2, gameState -> {}, gameState -> true, false);
         }
 
-        Choice(String label, String nextSceneId, Consumer<GameState> effect) {
-            this(label, nextSceneId, effect, g -> true, false);
+        Choice(String string, String string2, Consumer<GameState> consumer) {
+            this(string, string2, consumer, gameState -> true, false);
         }
 
-        Choice(String label, String nextSceneId, Consumer<GameState> effect, Predicate<GameState> visibility) {
-            this(label, nextSceneId, effect, visibility, false);
+        Choice(String string, String string2, Consumer<GameState> consumer, Predicate<GameState> predicate) {
+            this(string, string2, consumer, predicate, false);
         }
 
-        Choice(String label, String nextSceneId, Consumer<GameState> effect, Predicate<GameState> visibility, boolean recordsSuspicion) {
-            this.label = label;
-            this.nextSceneId = nextSceneId;
-            this.effect = effect;
-            this.visibility = visibility;
-            this.recordsSuspicion = recordsSuspicion;
+        Choice(String string, String string2, Consumer<GameState> consumer, Predicate<GameState> predicate, boolean bl) {
+            this.label = string;
+            this.nextSceneId = string2;
+            this.effect = consumer;
+            this.visibility = predicate;
+            this.recordsSuspicion = bl;
         }
 
-        boolean isVisible(GameState state) {
-            return visibility.test(state);
+        boolean isVisible(GameState gameState) {
+            return this.visibility.test(gameState);
         }
     }
 
-    private record PageEntry(String text, String speaker, String backgroundImage, String characterImage) {
-        // 최종 렌더링 단위. 실제 화면에는 Scene이 아니라 PageEntry가 하나씩 출력된다.
-        private static PageEntry empty() {
-            return new PageEntry("", "", "", "");
-        }
+    private record PageSpec(String text, String speaker, String backgroundImage, String characterImage) {
     }
 
     private static class SaveData {
-        // SaveData는 GameState를 파일에 저장하기 쉬운 형태로 옮긴 객체다.
-        String playerName = DEFAULT_PLAYER_NAME;
+        String playerName = "";
         String currentSceneId = "prologue_arrival";
         int textSpeedMs = 18;
         boolean poolSolved;
@@ -2020,158 +1857,137 @@ public class Main extends JFrame {
         int truthScore;
         int suspicionScore;
         String finalChoice = "";
-        final Set<String> seenEndings = new LinkedHashSet<>();
-        final Set<String> clues = new LinkedHashSet<>();
-        final Set<String> visitedScenes = new LinkedHashSet<>();
-        final List<String> suspectHistory = new ArrayList<>();
-        final Map<String, String> evidenceBoard = new LinkedHashMap<>();
+        final Set<String> seenEndings = new LinkedHashSet<String>();
+        final Set<String> clues = new LinkedHashSet<String>();
+        final Set<String> visitedScenes = new LinkedHashSet<String>();
+        final List<String> suspectHistory = new ArrayList<String>();
+        final Map<String, String> evidenceBoard = new LinkedHashMap<String, String>();
 
-        static SaveData from(GameState state, String currentSceneId, int textSpeedMs) {
-            SaveData data = new SaveData();
-            data.playerName = state.playerName;
-            data.currentSceneId = currentSceneId;
-            data.textSpeedMs = textSpeedMs;
-            data.poolSolved = state.poolSolved;
-            data.musicSolved = state.musicSolved;
-            data.scienceSolved = state.scienceSolved;
-            data.truthScore = state.truthScore;
-            data.suspicionScore = state.suspicionScore;
-            data.finalChoice = state.finalChoice;
-            data.seenEndings.addAll(state.seenEndings);
-            data.clues.addAll(state.clues);
-            data.visitedScenes.addAll(state.visitedScenes);
-            data.suspectHistory.addAll(state.suspectHistory);
-            data.evidenceBoard.putAll(state.evidenceBoard);
-            return data;
+        private SaveData() {
         }
 
-        void applyTo(GameState state) {
-            state.resetForNewRun();
-            state.playerName = playerName == null ? DEFAULT_PLAYER_NAME : playerName;
-            state.poolSolved = poolSolved;
-            state.musicSolved = musicSolved;
-            state.scienceSolved = scienceSolved;
-            state.truthScore = truthScore;
-            state.suspicionScore = suspicionScore;
-            state.finalChoice = finalChoice == null ? "" : finalChoice;
-            state.seenEndings.addAll(seenEndings);
-            state.clues.addAll(clues);
-            state.visitedScenes.addAll(visitedScenes);
-            state.suspectHistory.addAll(suspectHistory);
-            state.evidenceBoard.putAll(evidenceBoard);
+        static SaveData from(GameState gameState, String string, int n) {
+            SaveData saveData = new SaveData();
+            saveData.playerName = gameState.playerName;
+            saveData.currentSceneId = string;
+            saveData.textSpeedMs = n;
+            saveData.poolSolved = gameState.poolSolved;
+            saveData.musicSolved = gameState.musicSolved;
+            saveData.scienceSolved = gameState.scienceSolved;
+            saveData.truthScore = gameState.truthScore;
+            saveData.suspicionScore = gameState.suspicionScore;
+            saveData.finalChoice = gameState.finalChoice;
+            saveData.seenEndings.addAll(gameState.seenEndings);
+            saveData.clues.addAll(gameState.clues);
+            saveData.visitedScenes.addAll(gameState.visitedScenes);
+            saveData.suspectHistory.addAll(gameState.suspectHistory);
+            saveData.evidenceBoard.putAll(gameState.evidenceBoard);
+            return saveData;
+        }
+
+        void applyTo(GameState gameState) {
+            gameState.resetForNewRun();
+            gameState.playerName = this.playerName == null ? Main.DEFAULT_PLAYER_NAME : this.playerName;
+            gameState.poolSolved = this.poolSolved;
+            gameState.musicSolved = this.musicSolved;
+            gameState.scienceSolved = this.scienceSolved;
+            gameState.truthScore = this.truthScore;
+            gameState.suspicionScore = this.suspicionScore;
+            gameState.finalChoice = this.finalChoice == null ? Main.DEFAULT_PLAYER_NAME : this.finalChoice;
+            gameState.seenEndings.addAll(this.seenEndings);
+            gameState.clues.addAll(this.clues);
+            gameState.visitedScenes.addAll(this.visitedScenes);
+            gameState.suspectHistory.addAll(this.suspectHistory);
+            gameState.evidenceBoard.putAll(this.evidenceBoard);
         }
 
         void save(Path path) {
             try {
-                Files.createDirectories(path.getParent());
+                Files.createDirectories(path.getParent(), new FileAttribute[0]);
                 Properties properties = new Properties();
-                properties.setProperty("playerName", playerName == null ? "" : playerName);
-                properties.setProperty("currentSceneId", currentSceneId == null ? "prologue_arrival" : currentSceneId);
-                properties.setProperty("textSpeedMs", Integer.toString(textSpeedMs));
-                properties.setProperty("poolSolved", Boolean.toString(poolSolved));
-                properties.setProperty("musicSolved", Boolean.toString(musicSolved));
-                properties.setProperty("scienceSolved", Boolean.toString(scienceSolved));
-                properties.setProperty("truthScore", Integer.toString(truthScore));
-                properties.setProperty("suspicionScore", Integer.toString(suspicionScore));
-                properties.setProperty("finalChoice", finalChoice == null ? "" : finalChoice);
-                properties.setProperty("seenEndings", String.join("|", seenEndings));
-                properties.setProperty("clues", String.join("|", clues));
-                properties.setProperty("visitedScenes", String.join("|", visitedScenes));
-                properties.setProperty("suspectHistory", String.join("|", suspectHistory));
-                for (Map.Entry<String, String> entry : evidenceBoard.entrySet()) {
+                properties.setProperty("playerName", this.playerName == null ? Main.DEFAULT_PLAYER_NAME : this.playerName);
+                properties.setProperty("currentSceneId", this.currentSceneId == null ? "prologue_arrival" : this.currentSceneId);
+                properties.setProperty("textSpeedMs", Integer.toString(this.textSpeedMs));
+                properties.setProperty("poolSolved", Boolean.toString(this.poolSolved));
+                properties.setProperty("musicSolved", Boolean.toString(this.musicSolved));
+                properties.setProperty("scienceSolved", Boolean.toString(this.scienceSolved));
+                properties.setProperty("truthScore", Integer.toString(this.truthScore));
+                properties.setProperty("suspicionScore", Integer.toString(this.suspicionScore));
+                properties.setProperty("finalChoice", this.finalChoice == null ? Main.DEFAULT_PLAYER_NAME : this.finalChoice);
+                properties.setProperty("seenEndings", String.join((CharSequence)"|", this.seenEndings));
+                properties.setProperty("clues", String.join((CharSequence)"|", this.clues));
+                properties.setProperty("visitedScenes", String.join((CharSequence)"|", this.visitedScenes));
+                properties.setProperty("suspectHistory", String.join((CharSequence)"|", this.suspectHistory));
+                for (Map.Entry<String, String> entry : this.evidenceBoard.entrySet()) {
                     properties.setProperty("evidence." + entry.getKey(), entry.getValue());
                 }
-                try (var writer = Files.newBufferedWriter(path)) {
-                    properties.store(writer, "choice save data");
+                try (BufferedWriter bufferedWriter = Files.newBufferedWriter(path, new OpenOption[0]);){
+                    properties.store(bufferedWriter, "choice save data");
                 }
-            } catch (IOException ignored) {
+            }
+            catch (IOException iOException) {
+                // empty catch block
             }
         }
 
         static SaveData load(Path path) {
-            if (!Files.exists(path)) {
+            Object object;
+            if (!Files.exists(path, new LinkOption[0])) {
                 return null;
             }
             Properties properties = new Properties();
-            try (var reader = Files.newBufferedReader(path)) {
-                properties.load(reader);
-            } catch (IOException ex) {
+            try {
+                object = Files.newBufferedReader(path);
+                try {
+                    properties.load((Reader)object);
+                }
+                finally {
+                    if (object != null) {
+                        ((BufferedReader)object).close();
+                    }
+                }
+            }
+            catch (IOException iOException) {
                 return null;
             }
-
-            SaveData data = new SaveData();
-            data.playerName = properties.getProperty("playerName", DEFAULT_PLAYER_NAME);
-            data.currentSceneId = properties.getProperty("currentSceneId", "prologue_arrival");
-            data.textSpeedMs = Integer.parseInt(properties.getProperty("textSpeedMs", "18"));
-            data.poolSolved = Boolean.parseBoolean(properties.getProperty("poolSolved", "false"));
-            data.musicSolved = Boolean.parseBoolean(properties.getProperty("musicSolved", "false"));
-            data.scienceSolved = Boolean.parseBoolean(properties.getProperty("scienceSolved", "false"));
-            data.truthScore = Integer.parseInt(properties.getProperty("truthScore", "0"));
-            data.suspicionScore = Integer.parseInt(properties.getProperty("suspicionScore", "0"));
-            data.finalChoice = properties.getProperty("finalChoice", "");
-            addAll(properties.getProperty("seenEndings", ""), data.seenEndings);
-            addAll(properties.getProperty("clues", ""), data.clues);
-            addAll(properties.getProperty("visitedScenes", ""), data.visitedScenes);
-            addAll(properties.getProperty("suspectHistory", ""), data.suspectHistory);
-            for (String key : properties.stringPropertyNames()) {
-                if (key.startsWith("evidence.")) {
-                    data.evidenceBoard.put(key.substring("evidence.".length()), properties.getProperty(key, ""));
-                }
+            object = new SaveData();
+            ((SaveData)object).playerName = properties.getProperty("playerName", Main.DEFAULT_PLAYER_NAME);
+            ((SaveData)object).currentSceneId = properties.getProperty("currentSceneId", "prologue_arrival");
+            ((SaveData)object).textSpeedMs = Integer.parseInt(properties.getProperty("textSpeedMs", "18"));
+            ((SaveData)object).poolSolved = Boolean.parseBoolean(properties.getProperty("poolSolved", "false"));
+            ((SaveData)object).musicSolved = Boolean.parseBoolean(properties.getProperty("musicSolved", "false"));
+            ((SaveData)object).scienceSolved = Boolean.parseBoolean(properties.getProperty("scienceSolved", "false"));
+            ((SaveData)object).truthScore = Integer.parseInt(properties.getProperty("truthScore", "0"));
+            ((SaveData)object).suspicionScore = Integer.parseInt(properties.getProperty("suspicionScore", "0"));
+            ((SaveData)object).finalChoice = properties.getProperty("finalChoice", Main.DEFAULT_PLAYER_NAME);
+            SaveData.addAll(properties.getProperty("seenEndings", Main.DEFAULT_PLAYER_NAME), ((SaveData)object).seenEndings);
+            SaveData.addAll(properties.getProperty("clues", Main.DEFAULT_PLAYER_NAME), ((SaveData)object).clues);
+            SaveData.addAll(properties.getProperty("visitedScenes", Main.DEFAULT_PLAYER_NAME), ((SaveData)object).visitedScenes);
+            SaveData.addAll(properties.getProperty("suspectHistory", Main.DEFAULT_PLAYER_NAME), ((SaveData)object).suspectHistory);
+            for (String string : properties.stringPropertyNames()) {
+                if (!string.startsWith("evidence.")) continue;
+                ((SaveData)object).evidenceBoard.put(string.substring("evidence.".length()), properties.getProperty(string, Main.DEFAULT_PLAYER_NAME));
             }
-            return data;
+            return (SaveData)object;
         }
 
-        private static void addAll(String encoded, Set<String> target) {
-            if (encoded == null || encoded.isBlank()) {
+        private static void addAll(String string, Set<String> set) {
+            if (string == null || string.isBlank()) {
                 return;
             }
-            for (String value : encoded.split("\\|")) {
-                if (!value.isBlank()) {
-                    target.add(value);
-                }
+            for (String string2 : string.split("\\|")) {
+                if (string2.isBlank()) continue;
+                set.add(string2);
             }
         }
 
-        private static void addAll(String encoded, List<String> target) {
-            if (encoded == null || encoded.isBlank()) {
+        private static void addAll(String string, List<String> list) {
+            if (string == null || string.isBlank()) {
                 return;
             }
-            for (String value : encoded.split("\\|")) {
-                if (!value.isBlank()) {
-                    target.add(value);
-                }
-            }
-        }
-    }
-
-    private static class LengthFilter extends DocumentFilter {
-        private final int maxLength;
-
-        LengthFilter(int maxLength) {
-            this.maxLength = maxLength;
-        }
-
-        @Override
-        public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
-            if (string == null) {
-                return;
-            }
-            replace(fb, offset, 0, string, attr);
-        }
-
-        @Override
-        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
-            String incoming = text == null ? "" : text;
-            int currentLength = fb.getDocument().getLength();
-            int newLength = currentLength - length + incoming.length();
-            if (newLength <= maxLength) {
-                super.replace(fb, offset, length, incoming, attrs);
-                return;
-            }
-
-            int allowed = maxLength - (currentLength - length);
-            if (allowed > 0) {
-                super.replace(fb, offset, length, incoming.substring(0, allowed), attrs);
+            for (String string2 : string.split("\\|")) {
+                if (string2.isBlank()) continue;
+                list.add(string2);
             }
         }
     }
