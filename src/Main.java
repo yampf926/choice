@@ -32,6 +32,11 @@ public class Main extends JFrame {
     private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?。！？\\n]+[.!?。！？]?|\\n+");
     private static final String DEFAULT_PLAYER_NAME = "";
     private static final int MAX_PAGE_CHARS = 72;
+    private static final int STORY_PANEL_HEIGHT = 196;
+    private static final int HUD_SIDE_MARGIN = 18;
+    private static final int HUD_BOTTOM_MARGIN = 14;
+    private static final int SPEAKER_AREA_HEIGHT = 42;
+    private static final int CONTINUE_AREA_HEIGHT = 24;
     private static final Path SAVE_PATH = Path.of("out", "save.properties");
     private static final double MOBILE_ASPECT_RATIO = 9.0 / 16.0;
     private static final Color NIGHT = new Color(10, 12, 18);
@@ -45,30 +50,54 @@ public class Main extends JFrame {
     private static final Color BUTTON = new Color(72, 79, 92);
     private static final Color BUTTON_HOVER = new Color(86, 95, 110);
 
+    // 화면은 배경 -> 캐릭터 -> 오버레이(텍스트/선택지) 순서로 겹쳐서 그린다.
+    // titleLabel: 현재 장면 제목
     private final JLabel titleLabel = new JLabel("", SwingConstants.LEFT);
+    // chapterLabel: 현재 장면의 챕터 표기
     private final JLabel chapterLabel = new JLabel("", SwingConstants.RIGHT);
+    // backgroundLabel: 배경 이미지를 표시하는 레이어
     private final JLabel backgroundLabel = new JLabel("", SwingConstants.CENTER);
+    // characterLabel: 캐릭터 이미지를 표시하는 레이어
     private final JLabel characterLabel = new JLabel("", SwingConstants.CENTER);
+    // scenePanel: 장면의 모든 레이어를 올리는 루트 캔버스
     private final JPanel scenePanel = new JPanel(null);
+    // overlayPanel: 어두운 그라데이션과 선택지 오버레이를 올리는 레이어
     private final JPanel overlayPanel = new JPanel(new BorderLayout());
-    private final JPanel hudPanel = new JPanel(new BorderLayout());
+    // hudPanel: 하단 대화 UI 전체를 고정 위치로 담는 패널
+    private final JPanel hudPanel = new JPanel(null);
+    // storyArea: 실제 대사/나레이션 글자가 출력되는 텍스트 영역
     private final JTextArea storyArea = new JTextArea();
+    // continueLabel: NEXT, CHOICE 같은 진행 상태 문구
     private final JLabel continueLabel = new JLabel("CLICK", SwingConstants.RIGHT);
+    // storyPanel: 텍스트칸 배경과 내부 텍스트를 묶는 하단 카드
     private final JPanel storyPanel = createStoryPanel();
+    // speakerPanel: 화자 이름 배지를 담는 작은 패널
+    private final JPanel speakerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+    // speakerBadge: 현재 화자 이름을 표시하는 배지
     private final JLabel speakerBadge = new JLabel(" ", SwingConstants.LEFT);
+    // choiceOverlay: 선택지 창을 화면 위에 띄우는 오버레이
     private final JPanel choiceOverlay = new JPanel(new GridBagLayout());
+    // choicesPanel: 실제 선택지 버튼 목록이 들어가는 패널
     private final JPanel choicesPanel = new JPanel(new GridLayout(0, 1, 0, 10));
+    // startOverlay: 시작 화면 카드가 올라가는 레이어
     private final JPanel startOverlay = new JPanel(new GridBagLayout());
+    // galleryOverlay: 엔딩 모음 화면 카드가 올라가는 레이어
     private final JPanel galleryOverlay = new JPanel(new GridBagLayout());
+    // nameField: 플레이어 이름 입력 칸
     private final JTextField nameField = new JTextField("");
+    // galleryListPanel: 엔딩 목록 아이템을 세로로 쌓아두는 패널
     private final JPanel galleryListPanel = new JPanel();
+    // imageCache: 이미 읽은 이미지를 메모리에 보관해 다시 로드하지 않게 함
     private final Map<String, BufferedImage> imageCache = new LinkedHashMap<>();
+    // continueGameButton: 저장 데이터가 있을 때만 활성화되는 이어하기 버튼
     private JButton continueGameButton;
 
+    // 모든 장면은 문자열 id로 관리한다. 선택지는 nextSceneId로 다음 장면을 가리킨다.
     private final Map<String, Scene> scenes = new LinkedHashMap<>();
     private final GameState state = new GameState();
     private final Map<String, String> endingTitles = new LinkedHashMap<>();
     private final Map<String, String> endingDescriptions = new LinkedHashMap<>();
+    private final Set<String> narrationCharacterHiddenScenes = Set.of("prologue_principal");
 
     private Scene currentScene;
     private Timer dialogueTimer;
@@ -132,8 +161,8 @@ public class Main extends JFrame {
         storyArea.setWrapStyleWord(true);
         storyArea.setFont(new Font("Malgun Gothic", Font.PLAIN, 18));
         storyArea.setForeground(new Color(229, 233, 239));
-        storyArea.setBackground(PANEL);
-        storyArea.setOpaque(true);
+        storyArea.setBackground(new Color(0, 0, 0, 0));
+        storyArea.setOpaque(false);
         storyArea.setBorder(new EmptyBorder(16, 18, 8, 18));
         storyArea.addMouseListener(new MouseAdapter() {
             @Override
@@ -145,6 +174,7 @@ public class Main extends JFrame {
         continueLabel.setForeground(ACCENT_SOFT);
         continueLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 11));
         continueLabel.setBorder(new EmptyBorder(0, 0, 4, 14));
+        continueLabel.setOpaque(false);
 
         speakerBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 14));
         speakerBadge.setForeground(new Color(238, 241, 246));
@@ -157,13 +187,17 @@ public class Main extends JFrame {
                 ),
                 new EmptyBorder(7, 12, 7, 12)
         ));
+        speakerPanel.setOpaque(false);
+        speakerPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
+        speakerPanel.add(speakerBadge);
+        scenePanel.add(speakerPanel);
 
         storyPanel.setOpaque(false);
-        storyPanel.setPreferredSize(new Dimension(0, 180));
-        storyPanel.setMinimumSize(new Dimension(0, 180));
-        storyPanel.add(storyArea, BorderLayout.CENTER);
-        storyPanel.add(speakerBadge, BorderLayout.NORTH);
-        storyPanel.add(continueLabel, BorderLayout.SOUTH);
+        storyPanel.setLayout(null);
+        storyPanel.setPreferredSize(new Dimension(0, STORY_PANEL_HEIGHT));
+        storyPanel.setMinimumSize(new Dimension(0, STORY_PANEL_HEIGHT));
+        storyPanel.add(storyArea);
+        storyPanel.add(continueLabel);
         storyPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -172,8 +206,7 @@ public class Main extends JFrame {
         });
 
         hudPanel.setOpaque(false);
-        hudPanel.setBorder(new EmptyBorder(0, 18, 14, 18));
-        hudPanel.add(storyPanel, BorderLayout.SOUTH);
+        hudPanel.add(storyPanel);
 
         choiceOverlay.setOpaque(false);
         choicesPanel.setOpaque(true);
@@ -197,7 +230,7 @@ public class Main extends JFrame {
 
         overlayPanel.add(createBottomShade(), BorderLayout.CENTER);
         overlayPanel.add(choiceOverlay, BorderLayout.CENTER);
-        overlayPanel.add(hudPanel, BorderLayout.SOUTH);
+        scenePanel.add(hudPanel);
         scenePanel.add(startOverlay);
         scenePanel.add(galleryOverlay);
 
@@ -261,18 +294,24 @@ public class Main extends JFrame {
         return new JPanel(new BorderLayout(0, 8)) {
             @Override
             protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int shadowInsetX = 6;
+                int shadowInsetTop = 6;
+                int shadowInsetBottom = 6;
+                int cardWidth = Math.max(1, getWidth() - (shadowInsetX * 2));
+                int shadowHeight = Math.max(1, getHeight() - shadowInsetTop - shadowInsetBottom);
                 g2.setColor(new Color(0, 0, 0, 46));
-                g2.fillRoundRect(6, 8, getWidth() - 12, getHeight() - 6, 24, 24);
+                g2.fillRoundRect(shadowInsetX, shadowInsetTop, cardWidth, shadowHeight, 24, 24);
                 g2.setColor(new Color(52, 58, 69, 236));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
+                g2.fillRoundRect(0, 0, Math.max(1, getWidth() - 1), Math.max(1, getHeight() - 1), 24, 24);
                 g2.setColor(new Color(198, 206, 220, 70));
-                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 22, 22);
+                g2.drawRoundRect(1, 1, Math.max(1, getWidth() - 3), Math.max(1, getHeight() - 3), 22, 22);
                 g2.setColor(new Color(116, 125, 144, 150));
-                g2.drawLine(20, getHeight() - 18, getWidth() - 20, getHeight() - 18);
+                int dividerY = Math.max(12, getHeight() - 18);
+                g2.drawLine(20, dividerY, Math.max(20, getWidth() - 20), dividerY);
                 g2.dispose();
-                super.paintComponent(g);
             }
         };
     }
@@ -433,6 +472,8 @@ public class Main extends JFrame {
     }
 
     private void initScenes() {
+        // 게임의 실제 스토리 데이터가 여기 들어 있다.
+        // scenes.put("장면ID", new Scene(...)) 형식으로 장면을 추가하면 된다.
         scenes.put("prologue_arrival", new Scene(
                 "월야고등학교 정문",
                 "Chapter 1  프롤로그",
@@ -444,7 +485,7 @@ public class Main extends JFrame {
                 "교장",
                 "공모전 준비 팀에서만 세 건의 사망 사고가 났습니다. 공식 기록은 사고지만, 학생들은 누군가 팀을 노렸다고 믿고 있어요.",
                 "bg_school_gate_night.png",
-                "ch_principle.png",
+                "ch_principal.png",
                 List.of(new Choice("프로젝트 기록을 확인한다", "prologue_principal")),
                 null
         ));
@@ -460,7 +501,7 @@ public class Main extends JFrame {
                 "플레이어",
                 "사건은 서로 다른 장소에서 일어났지만, 출발점은 같은 프로젝트 안에 있다.",
                 "bg_archive_room.png",
-                "ch_kim_junyeong.png",
+                "ch_player.png",
                 List.of(new Choice("양지영에게 당시 상황을 듣는다", "prologue_nurse")),
                 null
         ));
@@ -497,176 +538,6 @@ public class Main extends JFrame {
                 null
         ));
 
-        scenes.put("pool_intro", new Scene(
-                "수영장 사고",
-                "Chapter 4  세 번째 사고",
-                """
-                세 번째 사고의 피해자는 수영부의 김준영이다.
-                수중 촬영을 준비하던 밤, 구조 타이밍이 몇 초 어긋나며 익사 사고가 발생했다.
-                준영이 평소 수영을 잘했다는 사실 때문에 학생들은 오히려 누군가 의도적으로 방해했다고 믿기 시작한다.
-                """,
-                "양지영",
-                "준영이는 체력이 좋았어요. 그래서 애들이 다들 더더욱 사고라는 말을 못 믿었죠.",
-                "bg_pool_night.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                null
-        ));
-
-        scenes.put("pool_video", new Scene(
-                "수중 촬영 영상",
-                "Chapter 4  세 번째 사고",
-                """
-                영상에는 구조 인력이 바로 뛰어들지 못한 몇 초의 공백이 남아 있다.
-                카메라 위치는 촬영 구도를 우선한 방향으로 바뀌어 있고, 안전 로프가 프레임 밖으로 치워진 흔적도 보인다.
-                학생들은 이 변화를 김세진의 배치 조작으로 해석하지만, 영상만으로는 의도를 단정할 수 없다.
-                """,
-                "플레이어",
-                "문제는 누가 손댔느냐보다, 왜 구조보다 화면 구도가 먼저였느냐는 쪽에 가깝다.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("수영장 영상")
-        ));
-
-        scenes.put("pool_interview", new Scene(
-                "현장 지원 기록",
-                "Chapter 4  세 번째 사고",
-                """
-                보조 인력 배치표에는 원래 네 명이던 안전 인원이 두 명으로 줄어든 기록이 남아 있다.
-                김세진은 촬영을 미루자고 적어 두었지만, 공모전 마감과 인원 부족 때문에 결국 강행됐다는 메모가 이어진다.
-                사고 직후 학생들이 본 것은 누군가를 끌어올리는 장면이 아니라, 이미 늦어진 구조였다.
-                """,
-                "플레이어",
-                "세 번째 사고에서도 먼저 보이는 건 개인의 흔적보다 무너진 통제다.",
-                "bg_pool_night.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("현장 지원 기록")
-        ));
-
-        scenes.put("pool_facility_log", new Scene(
-                "시설 점검표와 안전 장비",
-                "Chapter 4  세 번째 사고",
-                """
-                수영장 점검표에는 촬영 구간의 수심 표시 부표가 전날 분리되었다는 기록이 남아 있다.
-                대체 장비 신청은 올라갔지만 '공모전 촬영 우선' 메모와 함께 보류되었고, 안전 로프도 화면을 가린다는 이유로 치워져 있다.
-                즉 현장은 누군가의 함정보다, 위험을 알면서도 나중으로 미뤄 둔 안전 조치의 빈자리로 보인다.
-                """,
-                "플레이어",
-                "로프가 없는 이유가 범행 준비인지, 촬영 강행의 부산물인지가 핵심이다.",
-                "bg_pool_edge.png",
-                "ch_ju_dayeong.png",
-                List.of(
-                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
-                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
-                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
-                ),
-                g -> g.unlockClue("수영장 시설 점검표")
-        ));
-
-        scenes.put("pool_review", new Scene(
-                "수영장 단서 정리",
-                "Chapter 4  세 번째 사고",
-                """
-                모은 단서:
-                수영장 영상 / 현장 지원 기록 / 수영장 시설 점검표
-
-                영상에는 구조 공백이 남아 있고, 지원 기록에는 안전 인력 축소가 적혀 있다.
-                점검표는 수심 표시와 안전 로프가 조작이 아니라 촬영 우선 판단 때문에 사라졌음을 보여 준다.
-                """,
-                "플레이어",
-                "이제 준영의 마지막 몇 초를 다시 세워야 한다. 무엇이 먼저 무너졌는지가 결론을 바꾼다.",
-                "bg_pool_night.png",
-                "ch_ju_dayeong.png",
-                List.of(new Choice("사건을 재구성한다", "pool_deduction")),
-                null
-        ));
-
-        scenes.put("pool_deduction", new Scene(
-                "수영장 재구성 1",
-                "Chapter 4  세 번째 사고",
-                """
-                재구성 질문:
-                가장 먼저 무너진 것은 무엇인가.
-                """,
-                "플레이어",
-                "누군가가 밀어 넣었다고 고르면 쉽다. 하지만 그러면 왜 안전선이 비어 있었는지가 남는다.",
-                "bg_pool_night.png",
-                "ch_player.png",
-                List.of(
-                        new Choice("김세진이 일부러 배치를 바꿔 준영을 위험하게 만들었다고 본다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; }, g -> true, true),
-                        new Choice("안전 로프 철거와 보조 인력 축소가 먼저 일어나 구조선이 무너졌다고 본다", "pool_reconstruction")
-                ),
-                null
-        ));
-
-        scenes.put("pool_reconstruction", new Scene(
-                "수영장 재구성 2",
-                "Chapter 4  세 번째 사고",
-                """
-                다음 질문:
-                그렇다면 직접적인 비극은 어떤 공백에서 커졌는가.
-                """,
-                "플레이어",
-                "준영은 갑자기 약해진 게 아니다. 위험 신호를 봐 줄 사람이 제때 닿지 못한 쪽이 더 자연스럽다.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(
-                        new Choice("촬영 구도를 맞추느라 구조 인력이 분산된 몇 초의 공백이 사고를 키웠다", "pool_true", g -> {
-                            g.poolSolved = true;
-                            g.truthScore++;
-                            g.unlockClue("김준영 사건 해결");
-                        }),
-                        new Choice("준영이 혼자 무리하게 잠수했다가 우연히 아무도 못 본 틈에 사고가 났다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; })
-                ),
-                null
-        ));
-
-        scenes.put("pool_wrong", new Scene(
-                "수영장 오판",
-                "Chapter 4  세 번째 사고",
-                """
-                김세진의 배치 변경 흔적은 강한 의심을 만든다.
-                그러나 지원 기록과 점검표는 그 변화가 범행 설계라기보다, 무너진 현장을 억지로 맞추려던 흔적에 더 가깝다고 말한다.
-                범인을 하나 정하는 데 성공해도, 왜 사고가 가능했는지는 여전히 남는다.
-                """,
-                "플레이어",
-                "의심은 남았지만 구조는 읽지 못했다.",
-                "bg_pool_edge.png",
-                "ch_player.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
-
-        scenes.put("pool_true", new Scene(
-                "수영장 사건 결론",
-                "Chapter 4  세 번째 사고",
-                """
-                김준영의 사고는 개인의 악의보다, 촬영 강행과 안전 인력 부족이 겹쳐 만든 구조적 사고에 가깝다.
-                수영을 잘하던 준영이었기에 더더욱 누군가의 의도를 상상하기 쉬웠지만, 실제로 무너진 것은 구조선과 판단 순서였다.
-                세 번째 사건은 세 사고의 공통 원인을 가장 선명하게 드러낸다.
-                """,
-                "양지영",
-                "이제야 다들 왜 그날 구조보다 촬영이 먼저였는지 보이네요.",
-                "bg_pool_edge.png",
-                "ch_kim_junyeong.png",
-                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
-                null
-        ));
 
         scenes.put("music_intro", new Scene(
                 "음악실 사고",
@@ -1010,6 +881,177 @@ public class Main extends JFrame {
                 null
         ));
 
+        scenes.put("pool_intro", new Scene(
+                "수영장 사고",
+                "Chapter 4  세 번째 사고",
+                """
+                세 번째 사고의 피해자는 수영부의 김준영이다.
+                수중 촬영을 준비하던 밤, 구조 타이밍이 몇 초 어긋나며 익사 사고가 발생했다.
+                준영이 평소 수영을 잘했다는 사실 때문에 학생들은 오히려 누군가 의도적으로 방해했다고 믿기 시작한다.
+                """,
+                "양지영",
+                "준영이는 체력이 좋았어요. 그래서 애들이 다들 더더욱 사고라는 말을 못 믿었죠.",
+                "bg_pool_night.png",
+                "ch_kim_junyeong.png",
+                List.of(
+                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
+                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
+                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
+                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
+                ),
+                null
+        ));
+
+        scenes.put("pool_video", new Scene(
+                "수중 촬영 영상",
+                "Chapter 4  세 번째 사고",
+                """
+                영상에는 구조 인력이 바로 뛰어들지 못한 몇 초의 공백이 남아 있다.
+                카메라 위치는 촬영 구도를 우선한 방향으로 바뀌어 있고, 안전 로프가 프레임 밖으로 치워진 흔적도 보인다.
+                학생들은 이 변화를 김세진의 배치 조작으로 해석하지만, 영상만으로는 의도를 단정할 수 없다.
+                """,
+                "플레이어",
+                "문제는 누가 손댔느냐보다, 왜 구조보다 화면 구도가 먼저였느냐는 쪽에 가깝다.",
+                "bg_pool_edge.png",
+                "ch_kim_junyeong.png",
+                List.of(
+                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
+                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
+                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
+                ),
+                g -> g.unlockClue("수영장 영상")
+        ));
+
+        scenes.put("pool_interview", new Scene(
+                "현장 지원 기록",
+                "Chapter 4  세 번째 사고",
+                """
+                보조 인력 배치표에는 원래 네 명이던 안전 인원이 두 명으로 줄어든 기록이 남아 있다.
+                김세진은 촬영을 미루자고 적어 두었지만, 공모전 마감과 인원 부족 때문에 결국 강행됐다는 메모가 이어진다.
+                사고 직후 학생들이 본 것은 누군가를 끌어올리는 장면이 아니라, 이미 늦어진 구조였다.
+                """,
+                "플레이어",
+                "세 번째 사고에서도 먼저 보이는 건 개인의 흔적보다 무너진 통제다.",
+                "bg_pool_night.png",
+                "ch_kim_junyeong.png",
+                List.of(
+                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
+                        new Choice("시설 점검표와 안전 장비를 확인한다", "pool_facility_log"),
+                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
+                ),
+                g -> g.unlockClue("현장 지원 기록")
+        ));
+
+        scenes.put("pool_facility_log", new Scene(
+                "시설 점검표와 안전 장비",
+                "Chapter 4  세 번째 사고",
+                """
+                수영장 점검표에는 촬영 구간의 수심 표시 부표가 전날 분리되었다는 기록이 남아 있다.
+                대체 장비 신청은 올라갔지만 '공모전 촬영 우선' 메모와 함께 보류되었고, 안전 로프도 화면을 가린다는 이유로 치워져 있다.
+                즉 현장은 누군가의 함정보다, 위험을 알면서도 나중으로 미뤄 둔 안전 조치의 빈자리로 보인다.
+                """,
+                "플레이어",
+                "로프가 없는 이유가 범행 준비인지, 촬영 강행의 부산물인지가 핵심이다.",
+                "bg_pool_edge.png",
+                "ch_ju_dayeong.png",
+                List.of(
+                        new Choice("수중 촬영 영상과 일정표를 본다", "pool_video"),
+                        new Choice("현장 지원 기록을 확인한다", "pool_interview"),
+                        new Choice("모은 단서를 정리한다", "pool_review", g -> {}, Main::canReviewPool)
+                ),
+                g -> g.unlockClue("수영장 시설 점검표")
+        ));
+
+        scenes.put("pool_review", new Scene(
+                "수영장 단서 정리",
+                "Chapter 4  세 번째 사고",
+                """
+                모은 단서:
+                수영장 영상 / 현장 지원 기록 / 수영장 시설 점검표
+
+                영상에는 구조 공백이 남아 있고, 지원 기록에는 안전 인력 축소가 적혀 있다.
+                점검표는 수심 표시와 안전 로프가 조작이 아니라 촬영 우선 판단 때문에 사라졌음을 보여 준다.
+                """,
+                "플레이어",
+                "이제 준영의 마지막 몇 초를 다시 세워야 한다. 무엇이 먼저 무너졌는지가 결론을 바꾼다.",
+                "bg_pool_night.png",
+                "ch_ju_dayeong.png",
+                List.of(new Choice("사건을 재구성한다", "pool_deduction")),
+                null
+        ));
+
+        scenes.put("pool_deduction", new Scene(
+                "수영장 재구성 1",
+                "Chapter 4  세 번째 사고",
+                """
+                재구성 질문:
+                가장 먼저 무너진 것은 무엇인가.
+                """,
+                "플레이어",
+                "누군가가 밀어 넣었다고 고르면 쉽다. 하지만 그러면 왜 안전선이 비어 있었는지가 남는다.",
+                "bg_pool_night.png",
+                "ch_player.png",
+                List.of(
+                        new Choice("김세진이 일부러 배치를 바꿔 준영을 위험하게 만들었다고 본다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; }, g -> true, true),
+                        new Choice("안전 로프 철거와 보조 인력 축소가 먼저 일어나 구조선이 무너졌다고 본다", "pool_reconstruction")
+                ),
+                null
+        ));
+
+        scenes.put("pool_reconstruction", new Scene(
+                "수영장 재구성 2",
+                "Chapter 4  세 번째 사고",
+                """
+                다음 질문:
+                그렇다면 직접적인 비극은 어떤 공백에서 커졌는가.
+                """,
+                "플레이어",
+                "준영은 갑자기 약해진 게 아니다. 위험 신호를 봐 줄 사람이 제때 닿지 못한 쪽이 더 자연스럽다.",
+                "bg_pool_edge.png",
+                "ch_kim_junyeong.png",
+                List.of(
+                        new Choice("촬영 구도를 맞추느라 구조 인력이 분산된 몇 초의 공백이 사고를 키웠다", "pool_true", g -> {
+                            g.poolSolved = true;
+                            g.truthScore++;
+                            g.unlockClue("김준영 사건 해결");
+                        }),
+                        new Choice("준영이 혼자 무리하게 잠수했다가 우연히 아무도 못 본 틈에 사고가 났다", "pool_wrong", g -> { g.suspicionScore++; g.poolSolved = true; })
+                ),
+                null
+        ));
+
+        scenes.put("pool_wrong", new Scene(
+                "수영장 오판",
+                "Chapter 4  세 번째 사고",
+                """
+                김세진의 배치 변경 흔적은 강한 의심을 만든다.
+                그러나 지원 기록과 점검표는 그 변화가 범행 설계라기보다, 무너진 현장을 억지로 맞추려던 흔적에 더 가깝다고 말한다.
+                범인을 하나 정하는 데 성공해도, 왜 사고가 가능했는지는 여전히 남는다.
+                """,
+                "플레이어",
+                "의심은 남았지만 구조는 읽지 못했다.",
+                "bg_pool_edge.png",
+                "ch_player.png",
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
+                null
+        ));
+
+        scenes.put("pool_true", new Scene(
+                "수영장 사건 결론",
+                "Chapter 4  세 번째 사고",
+                """
+                김준영의 사고는 개인의 악의보다, 촬영 강행과 안전 인력 부족이 겹쳐 만든 구조적 사고에 가깝다.
+                수영을 잘하던 준영이었기에 더더욱 누군가의 의도를 상상하기 쉬웠지만, 실제로 무너진 것은 구조선과 판단 순서였다.
+                세 번째 사건은 세 사고의 공통 원인을 가장 선명하게 드러낸다.
+                """,
+                "양지영",
+                "이제야 다들 왜 그날 구조보다 촬영이 먼저였는지 보이네요.",
+                "bg_pool_edge.png",
+                "ch_kim_junyeong.png",
+                List.of(new Choice("사건 정리로 돌아간다", "case_hub")),
+                null
+        ));
+
         scenes.put("case_hub", new Scene(
                 "사건 정리",
                 "Chapter 1-4  프로젝트 조사",
@@ -1221,6 +1263,7 @@ public class Main extends JFrame {
         nameField.setText(state.playerName == null || state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : state.playerName);
         storyArea.setText("");
         speakerBadge.setVisible(false);
+        speakerPanel.setVisible(false);
         choiceOverlay.setVisible(false);
         galleryOverlay.setVisible(false);
         startOverlay.setVisible(true);
@@ -1296,6 +1339,7 @@ public class Main extends JFrame {
         startOverlay.setVisible(false);
         galleryOverlay.setVisible(true);
         hudPanel.setVisible(false);
+        speakerPanel.setVisible(false);
         choiceOverlay.setVisible(false);
         currentScene = null;
         currentSceneId = "ending_gallery";
@@ -1340,6 +1384,8 @@ public class Main extends JFrame {
     }
 
     private void showScene(String id) {
+        // 장면 진입 시 제목/이미지/방문 기록을 갱신하고,
+        // 아래 prepareSceneFlow()에서 텍스트 페이지와 선택지를 준비한다.
         Scene scene = scenes.get(id);
         if (scene == null) {
             return;
@@ -1493,6 +1539,7 @@ public class Main extends JFrame {
     }
 
     private void startDialogueAnimation(String fullText) {
+        // 타이핑 효과는 Timer로 한 글자씩 storyArea에 추가하는 방식이다.
         if (dialogueTimer != null && dialogueTimer.isRunning()) {
             dialogueTimer.stop();
         }
@@ -1542,11 +1589,28 @@ public class Main extends JFrame {
         int characterY = Math.max(0, height - characterHeight);
         characterLabel.setBounds(characterX, characterY, characterWidth, characterHeight);
         overlayPanel.setBounds(0, 0, width, height);
+        int storyWidth = Math.max(1, width - (HUD_SIDE_MARGIN * 2));
+        int hudHeight = STORY_PANEL_HEIGHT + HUD_BOTTOM_MARGIN;
+        int hudY = Math.max(0, height - hudHeight);
+        hudPanel.setBounds(0, hudY, width, hudHeight);
+        storyPanel.setBounds(HUD_SIDE_MARGIN, 0, storyWidth, STORY_PANEL_HEIGHT);
+        int speakerWidth = Math.min(Math.max(120, speakerBadge.getPreferredSize().width), Math.max(120, storyWidth - 28));
+        int speakerX = HUD_SIDE_MARGIN + 14;
+        int speakerY = Math.max(12, hudY - SPEAKER_AREA_HEIGHT + 10);
+        speakerPanel.setBounds(speakerX, speakerY, speakerWidth, SPEAKER_AREA_HEIGHT);
+        int textAreaY = 10;
+        int textAreaHeight = Math.max(1, STORY_PANEL_HEIGHT - textAreaY - CONTINUE_AREA_HEIGHT);
+        storyArea.setBounds(0, textAreaY, storyWidth, textAreaHeight);
+        continueLabel.setBounds(0, STORY_PANEL_HEIGHT - CONTINUE_AREA_HEIGHT, storyWidth - 12, CONTINUE_AREA_HEIGHT);
         startOverlay.setBounds(0, 0, width, height);
         galleryOverlay.setBounds(0, 0, width, height);
-        scenePanel.setComponentZOrder(backgroundLabel, 4);
-        scenePanel.setComponentZOrder(characterLabel, 3);
-        scenePanel.setComponentZOrder(overlayPanel, 2);
+        int topInset = speakerPanel.isVisible() ? Math.max(12, speakerY + SPEAKER_AREA_HEIGHT + 8) : 12;
+        choiceOverlay.setBorder(new EmptyBorder(topInset, HUD_SIDE_MARGIN, hudHeight + 8, HUD_SIDE_MARGIN));
+        scenePanel.setComponentZOrder(backgroundLabel, 6);
+        scenePanel.setComponentZOrder(characterLabel, 5);
+        scenePanel.setComponentZOrder(overlayPanel, 4);
+        scenePanel.setComponentZOrder(hudPanel, 3);
+        scenePanel.setComponentZOrder(speakerPanel, 2);
         scenePanel.setComponentZOrder(galleryOverlay, 1);
         scenePanel.setComponentZOrder(startOverlay, 0);
     }
@@ -1604,8 +1668,9 @@ public class Main extends JFrame {
     }
 
     private void prepareSceneFlow(Scene scene) {
+        // 현재 장면에서 실제로 보여줄 선택지와 텍스트 페이지를 계산한다.
         visibleChoices = collectVisibleChoices(scene);
-        scenePages = buildPages(scene);
+        scenePages = buildPages(currentSceneId, scene);
         currentPageIndex = 0;
         choiceOverlay.setVisible(false);
         choicesPanel.removeAll();
@@ -1629,18 +1694,23 @@ public class Main extends JFrame {
         return choices;
     }
 
-    private List<PageEntry> buildPages(Scene scene) {
+    private List<PageEntry> buildPages(String sceneId, Scene scene) {
+        // 한 장면의 텍스트를 "한 번에 보여줄 페이지" 목록으로 자른다.
+        // 내레이션과 대사는 같은 장면 안에 있어도 서로 다른 페이지가 된다.
         List<PageEntry> pages = new ArrayList<>();
+        String narrationCharacterImage = narrationCharacterHiddenScenes.contains(sceneId) ? "" : scene.characterImage;
         if (scene.narration != null && !scene.narration.isBlank()) {
-            pages.addAll(splitIntoPages(scene.narration, ""));
+            pages.addAll(splitIntoPages(scene.narration, "", scene.backgroundImage, narrationCharacterImage));
         }
         if (scene.dialogue != null && !scene.dialogue.isBlank()) {
-            pages.addAll(splitIntoPages(scene.dialogue, scene.speaker));
+            pages.addAll(splitIntoPages(scene.dialogue, scene.speaker, scene.backgroundImage, scene.characterImage));
         }
         return pages;
     }
 
-    private List<PageEntry> splitIntoPages(String text, String speaker) {
+    private List<PageEntry> splitIntoPages(String text, String speaker, String backgroundImage, String characterImage) {
+        // 문장을 1~2개씩 묶어서 한 페이지를 만든다.
+        // 너무 긴 문장은 MAX_PAGE_CHARS 기준으로 다음 페이지로 넘긴다.
         List<PageEntry> pages = new ArrayList<>();
         List<String> sentences = new ArrayList<>();
         Matcher matcher = SENTENCE_PATTERN.matcher(applyPlayerName(text).strip());
@@ -1660,7 +1730,7 @@ public class Main extends JFrame {
         for (String sentence : sentences) {
             int projectedLength = page.length() + sentence.length() + (page.length() > 0 ? 1 : 0);
             if (page.length() > 0 && (sentenceCount >= 2 || projectedLength > MAX_PAGE_CHARS)) {
-                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
                 page.setLength(0);
                 sentenceCount = 0;
             }
@@ -1670,14 +1740,14 @@ public class Main extends JFrame {
             page.append(sentence);
             sentenceCount++;
             if (sentenceCount == 2 && page.length() >= MAX_PAGE_CHARS / 2) {
-                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+                pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
                 page.setLength(0);
                 sentenceCount = 0;
             }
         }
 
         if (page.length() > 0) {
-            pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip()));
+            pages.add(new PageEntry(page.toString(), speaker == null ? "" : speaker.strip(), backgroundImage, characterImage));
         }
         return pages;
     }
@@ -1689,12 +1759,20 @@ public class Main extends JFrame {
 
     private void showCurrentPage() {
         currentPage = scenePages.get(currentPageIndex);
+        activeBackgroundImage = currentPage.backgroundImage();
+        activeCharacterImage = currentPage.characterImage();
+        refreshImages();
         updateSpeakerBadge();
+        layoutSceneLayers();
         continueLabel.setText(pageFullyVisible ? nextPromptText() : "...");
         startDialogueAnimation(currentPage.text());
     }
 
     private void advanceStory() {
+        // 클릭 시 동작 순서:
+        // 1) 아직 타이핑 중이면 즉시 전체 문장 표시
+        // 2) 다음 페이지가 있으면 다음 페이지로 이동
+        // 3) 마지막 페이지면 선택지 또는 엔딩 처리
         if (choiceOverlay.isVisible()) {
             return;
         }
@@ -1852,6 +1930,8 @@ public class Main extends JFrame {
     }
 
     private static class Scene {
+        // Scene은 "한 장면에 필요한 데이터 묶음"이다.
+        // 텍스트, 화자, 이미지, 선택지, 진입 시 실행할 로직을 함께 가진다.
         final String title;
         final String chapter;
         final String narration;
@@ -1889,6 +1969,8 @@ public class Main extends JFrame {
     }
 
     private static class Choice {
+        // Choice는 버튼 하나의 데이터다.
+        // label: 버튼 글자, nextSceneId: 이동할 장면, effect: 상태값 변경 로직
         final String label;
         final String nextSceneId;
         final Consumer<GameState> effect;
@@ -1920,13 +2002,15 @@ public class Main extends JFrame {
         }
     }
 
-    private record PageEntry(String text, String speaker) {
+    private record PageEntry(String text, String speaker, String backgroundImage, String characterImage) {
+        // 최종 렌더링 단위. 실제 화면에는 Scene이 아니라 PageEntry가 하나씩 출력된다.
         private static PageEntry empty() {
-            return new PageEntry("", "");
+            return new PageEntry("", "", "", "");
         }
     }
 
     private static class SaveData {
+        // SaveData는 GameState를 파일에 저장하기 쉬운 형태로 옮긴 객체다.
         String playerName = DEFAULT_PLAYER_NAME;
         String currentSceneId = "prologue_arrival";
         int textSpeedMs = 18;
