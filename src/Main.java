@@ -76,7 +76,7 @@ import javax.swing.text.DocumentFilter;
 
 public class Main
 extends JFrame {
-    private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?\u3002\uff01\uff1f\\n]+[.!?\u3002\uff01\uff1f]?|\\n+");
+    private static final Pattern SENTENCE_PATTERN = Pattern.compile("[^.!?。！？\\n]+[.!?。！？]?|\\n+");
     private static final String DEFAULT_PLAYER_NAME = "";
     private static final int MAX_PAGE_CHARS = 72;
     private static final int STORY_PANEL_HEIGHT = 196;
@@ -144,7 +144,7 @@ extends JFrame {
     private Dimension lastFrameSize = new Dimension(450, 800);
 
     public Main() {
-        this.setTitle("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50: \uce68\ubb35\uc758 \uae30\ub85d");
+        this.setTitle("월야고등학교: 침묵의 기록");
         this.setDefaultCloseOperation(3);
         this.setSize(450, 800);
         this.setMinimumSize(new Dimension(360, 640));
@@ -319,12 +319,12 @@ extends JFrame {
         JPanel jPanel2 = new JPanel();
         jPanel2.setLayout(new BoxLayout(jPanel2, 1));
         jPanel2.setOpaque(false);
-        JLabel jLabel = new JLabel("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50");
+        JLabel jLabel = new JLabel("월야고등학교");
         jLabel.setAlignmentX(0.5f);
         jLabel.setHorizontalAlignment(0);
         jLabel.setFont(new Font("Malgun Gothic", 1, 24));
         jLabel.setForeground(new Color(212, 218, 228));
-        JLabel jLabel2 = new JLabel("\uc774\ub984");
+        JLabel jLabel2 = new JLabel("이름");
         jLabel2.setAlignmentX(0.5f);
         jLabel2.setHorizontalAlignment(0);
         jLabel2.setFont(new Font("Malgun Gothic", 1, 13));
@@ -340,10 +340,10 @@ extends JFrame {
         this.nameField.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(110, 120, 138), 1), new EmptyBorder(8, 10, 8, 10)));
         ((AbstractDocument)this.nameField.getDocument()).setDocumentFilter(new LengthFilter(5));
         this.nameField.addActionListener(actionEvent -> this.startGame());
-        JButton jButton = this.createMenuButton("\uc2dc\uc791", this::startGame);
-        this.continueGameButton = this.createMenuButton("\uc774\uc5b4\ud558\uae30", this::continueGame);
-        JButton jButton2 = this.createMenuButton("\uc5d4\ub529 \ubaa8\uc74c", this::showEndingGallery);
-        JButton jButton3 = this.createMenuButton("\uae30\ub85d \uc0ad\uc81c", this::clearSaveData);
+        JButton jButton = this.createMenuButton("시작", this::startGame);
+        this.continueGameButton = this.createMenuButton("이어하기", this::continueGame);
+        JButton jButton2 = this.createMenuButton("엔딩 모음", this::showEndingGallery);
+        JButton jButton3 = this.createMenuButton("기록 삭제", this::clearSaveData);
         this.continueGameButton.setEnabled(Files.exists(SAVE_PATH, new LinkOption[0]));
         jPanel2.add(jLabel);
         jPanel2.add(jLabel2);
@@ -364,7 +364,7 @@ extends JFrame {
         JPanel jPanel = this.createOverlayCard(new BorderLayout(0, 14));
         jPanel.setBorder(new EmptyBorder(22, 22, 22, 22));
         jPanel.setPreferredSize(new Dimension(320, 460));
-        JLabel jLabel = new JLabel("\uc5d4\ub529 \ubaa8\uc74c");
+        JLabel jLabel = new JLabel("엔딩 모음");
         jLabel.setFont(new Font("Malgun Gothic", 1, 21));
         jLabel.setForeground(new Color(216, 221, 230));
         jLabel.setHorizontalAlignment(0);
@@ -372,7 +372,7 @@ extends JFrame {
         this.galleryListPanel.setLayout(new BoxLayout(this.galleryListPanel, 1));
         this.galleryListPanel.setOpaque(false);
         jPanel.add((Component)this.galleryListPanel, "Center");
-        JButton jButton = this.createMenuButton("\ub3cc\uc544\uac00\uae30", this::showStartScreen);
+        JButton jButton = this.createMenuButton("돌아가기", this::showStartScreen);
         jPanel.add((Component)jButton, "South");
         return jPanel;
     }
@@ -433,12 +433,12 @@ extends JFrame {
 
     // 엔딩 아카이브 화면에서 사용할 제목과 설명 텍스트를 미리 등록한다.
     private void initEndingMetadata() {
-        this.endingTitles.put("ending_true", "\uae30\ub85d\ub41c \uc9c4\uc2e4");
-        this.endingTitles.put("ending_wrong_accusation", "\ud76c\uc0dd\uc591");
-        this.endingTitles.put("ending_silence", "\ubbf8\uc644\uc758 \ubcf4\uace0\uc11c");
-        this.endingDescriptions.put("ending_true", "\ubb34\ub9ac\ud55c \ucd2c\uc601\uacfc \uc548\uc804 \ubd80\uc7ac\uac00 \ub9cc\ub4e0 \uc5f0\uc18d \uc0ac\uace0\ub97c \ubc1d\ud600\ub0b8 \uacb0\ub9d0");
-        this.endingDescriptions.put("ending_wrong_accusation", "\uae40\ud604\uc9c4\uc5d0\uac8c \uc8c4\ub97c \ub4a4\uc9d1\uc5b4\uc50c\uc6b0\uace0 \uad6c\uc870\uc801 \uc6d0\uc778\uc744 \ub193\uce5c \uacb0\ub9d0");
-        this.endingDescriptions.put("ending_silence", "\uc9c4\uc2e4 \uc9c1\uc804\uc5d0\uc11c \uba48\ucdb0 \ud504\ub85c\uc81d\ud2b8\uc758 \ucc45\uc784\ub9cc \ud750\ub824\uc9c4 \uacb0\ub9d0");
+        this.endingTitles.put("ending_true", "기록된 진실");
+        this.endingTitles.put("ending_wrong_accusation", "희생양");
+        this.endingTitles.put("ending_silence", "미완의 보고서");
+        this.endingDescriptions.put("ending_true", "무리한 촬영과 안전 부재가 만든 연속 사고를 밝혀낸 결말");
+        this.endingDescriptions.put("ending_wrong_accusation", "김현진에게 죄를 뒤집어씌우고 구조적 원인을 놓친 결말");
+        this.endingDescriptions.put("ending_silence", "진실 직전에서 멈춰 프로젝트의 책임만 흐려진 결말");
     }
 
     // 스페이스 키로 다음 대사/페이지를 넘길 수 있게 전역 키 바인딩을 건다.
@@ -482,7 +482,7 @@ extends JFrame {
             return arrayList;
         }
         catch (IOException iOException) {
-            throw new IllegalStateException("\uc7a5\uba74 JSON\uc744 \uc77d\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4: " + String.valueOf(SCENES_PATH), iOException);
+            throw new IllegalStateException("장면 JSON을 읽을 수 없습니다: " + String.valueOf(SCENES_PATH), iOException);
         }
     }
 
@@ -528,19 +528,19 @@ extends JFrame {
     private Consumer<GameState> buildSceneOnEnter(String string) {
         return switch (string == null ? DEFAULT_PLAYER_NAME : string) {
             case DEFAULT_PLAYER_NAME, "noop" -> null;
-            case "unlock_music_record" -> gameState -> gameState.unlockClue("\uc74c\uc545\uc2e4 \ub179\uc74c");
-            case "unlock_music_witness" -> gameState -> gameState.unlockClue("\ubcf5\ub3c4 \ubaa9\uaca9\ub2f4");
-            case "unlock_music_sheet" -> gameState -> gameState.unlockClue("\ucc22\uc5b4\uc9c4 \uc545\ubcf4");
-            case "unlock_science_label" -> gameState -> gameState.unlockClue("\ub77c\ubca8 \uc9c0\uc6cc\uc9c4 \uc6a9\uae30");
-            case "unlock_science_cleanup" -> gameState -> gameState.unlockClue("\uc815\ub9ac \uc9c0\uc2dc \uae30\ub85d");
-            case "unlock_science_warning" -> gameState -> gameState.unlockClue("\uc190\uae00\uc528 \uacbd\uace0 \uba54\ubaa8");
-            case "unlock_pool_video" -> gameState -> gameState.unlockClue("\uc218\uc601\uc7a5 \uc601\uc0c1");
-            case "unlock_pool_support" -> gameState -> gameState.unlockClue("\ud604\uc7a5 \uc9c0\uc6d0 \uae30\ub85d");
-            case "unlock_pool_facility" -> gameState -> gameState.unlockClue("\uc218\uc601\uc7a5 \uc2dc\uc124 \uc810\uac80\ud45c");
-            case "unlock_rooftop_gate" -> gameState -> gameState.unlockClue("\uc625\uc0c1 \ucd9c\uc785 \uae30\ub85d");
-            case "unlock_rooftop_prejudice" -> gameState -> gameState.unlockClue("\uc758\uc2ec\uc774 \ud37c\uc9c4 \uc99d\uc5b8");
-            case "unlock_project_minutes" -> gameState -> gameState.unlockClue("\ud504\ub85c\uc81d\ud2b8 \ud68c\uc758\ub85d");
-            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 scene onEnter ID: " + string);
+            case "unlock_music_record" -> gameState -> gameState.unlockClue("음악실 녹음");
+            case "unlock_music_witness" -> gameState -> gameState.unlockClue("복도 목격담");
+            case "unlock_music_sheet" -> gameState -> gameState.unlockClue("찢어진 악보");
+            case "unlock_science_label" -> gameState -> gameState.unlockClue("라벨 지워진 용기");
+            case "unlock_science_cleanup" -> gameState -> gameState.unlockClue("정리 지시 기록");
+            case "unlock_science_warning" -> gameState -> gameState.unlockClue("손글씨 경고 메모");
+            case "unlock_pool_video" -> gameState -> gameState.unlockClue("수영장 영상");
+            case "unlock_pool_support" -> gameState -> gameState.unlockClue("현장 지원 기록");
+            case "unlock_pool_facility" -> gameState -> gameState.unlockClue("수영장 시설 점검표");
+            case "unlock_rooftop_gate" -> gameState -> gameState.unlockClue("옥상 출입 기록");
+            case "unlock_rooftop_prejudice" -> gameState -> gameState.unlockClue("의심이 퍼진 증언");
+            case "unlock_project_minutes" -> gameState -> gameState.unlockClue("프로젝트 회의록");
+            default -> throw new IllegalArgumentException("알 수 없는 scene onEnter ID: " + string);
         };
     }
 
@@ -556,7 +556,7 @@ extends JFrame {
             case "resolve_music_true" -> gameState -> {
                 gameState.musicSolved = true;
                 ++gameState.truthScore;
-                gameState.unlockClue("\uc8fc\ub2e4\uc601 \uc0ac\uac74 \ud574\uacb0");
+                gameState.unlockClue("주다영 사건 해결");
             };
             case "mark_science_wrong" -> gameState -> {
                 ++gameState.suspicionScore;
@@ -565,7 +565,7 @@ extends JFrame {
             case "resolve_science_true" -> gameState -> {
                 gameState.scienceSolved = true;
                 ++gameState.truthScore;
-                gameState.unlockClue("\ud55c\uc2b9\uc900 \uc0ac\uac74 \ud574\uacb0");
+                gameState.unlockClue("한승준 사건 해결");
             };
             case "mark_pool_wrong" -> gameState -> {
                 ++gameState.suspicionScore;
@@ -574,7 +574,7 @@ extends JFrame {
             case "resolve_pool_true" -> gameState -> {
                 gameState.poolSolved = true;
                 ++gameState.truthScore;
-                gameState.unlockClue("\uae40\uc900\uc601 \uc0ac\uac74 \ud574\uacb0");
+                gameState.unlockClue("김준영 사건 해결");
             };
             case "set_final_accuse" -> gameState -> {
                 gameState.finalChoice = "accuse";
@@ -586,7 +586,7 @@ extends JFrame {
                 gameState.finalChoice = "innocent";
             };
             case "reset_state" -> GameState::reset;
-            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 choice effect ID: " + string);
+            default -> throw new IllegalArgumentException("알 수 없는 choice effect ID: " + string);
         };
     }
 
@@ -603,7 +603,7 @@ extends JFrame {
             case "can_enter_pool_case" -> gameState -> gameState.musicSolved && gameState.scienceSolved && !gameState.poolSolved;
             case "can_enter_final_case" -> gameState -> gameState.musicSolved && gameState.scienceSolved && gameState.poolSolved && !gameState.visitedScenes.contains("rooftop_intro");
             case "can_review_final_board" -> Main::canReviewFinalBoard;
-            default -> throw new IllegalArgumentException("\uc54c \uc218 \uc5c6\ub294 choice visibility ID: " + string);
+            default -> throw new IllegalArgumentException("알 수 없는 choice visibility ID: " + string);
         };
     }
 
@@ -614,7 +614,7 @@ extends JFrame {
         }
         Path path = Path.of("assets", "images", string3);
         if (!Files.exists(path, new LinkOption[0])) {
-            throw new IllegalStateException("\uc7a5\uba74 '" + string + "'\uc758 " + string2 + " \ud30c\uc77c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4: " + String.valueOf(path));
+            throw new IllegalStateException("장면 '" + string + "'의 " + string2 + " 파일이 없습니다: " + String.valueOf(path));
         }
     }
 
@@ -622,7 +622,7 @@ extends JFrame {
     private String readRequiredString(Map<String, Object> map, String string) {
         Object object = map.get(string);
         if (!(object instanceof String)) {
-            throw new IllegalArgumentException("\ubb38\uc790\uc5f4 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+            throw new IllegalArgumentException("문자열 필드가 필요합니다: " + string);
         }
         String string2 = (String)object;
         return string2;
@@ -638,7 +638,7 @@ extends JFrame {
             String string2 = (String)object;
             return string2;
         }
-        throw new IllegalArgumentException("\ubb38\uc790\uc5f4 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+        throw new IllegalArgumentException("문자열 필드가 필요합니다: " + string);
     }
 
     // boolean 필드를 읽을 때 타입이 틀리면 조기에 실패시킨다.
@@ -648,7 +648,7 @@ extends JFrame {
             Boolean bl = (Boolean)object;
             return bl;
         }
-        throw new IllegalArgumentException("\ubd88\ub9ac\uc5b8 \ud544\ub4dc\uac00 \ud544\uc694\ud569\ub2c8\ub2e4: " + string);
+        throw new IllegalArgumentException("불리언 필드가 필요합니다: " + string);
     }
 
     // 파싱된 페이지 정의를 화면 전개용 PageSpec 목록으로 단순 변환한다.
@@ -705,7 +705,7 @@ extends JFrame {
         this.currentSceneId = "start_menu";
         this.activeBackgroundImage = "bg_school_gate_night.png";
         this.activeCharacterImage = DEFAULT_PLAYER_NAME;
-        this.titleLabel.setText("\uc6d4\uc57c\uace0\ub4f1\ud559\uad50");
+        this.titleLabel.setText("월야고등학교");
         this.chapterLabel.setText("START");
         this.nameField.setText(this.state.playerName == null || this.state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : this.state.playerName);
         this.storyArea.setText(DEFAULT_PLAYER_NAME);
@@ -796,7 +796,7 @@ extends JFrame {
         this.currentSceneId = "ending_gallery";
         this.activeBackgroundImage = "bg_archive_room.png";
         this.activeCharacterImage = DEFAULT_PLAYER_NAME;
-        this.titleLabel.setText("\uc5d4\ub529 \ubaa8\uc74c");
+        this.titleLabel.setText("엔딩 모음");
         this.chapterLabel.setText("ARCHIVE");
         this.refreshSceneFrame();
     }
@@ -814,7 +814,7 @@ extends JFrame {
             JLabel jLabel = new JLabel(bl ? this.applyPlayerName(this.endingTitles.get(string)) : "???");
             jLabel.setFont(new Font("Malgun Gothic", 1, 15));
             jLabel.setForeground(bl ? new Color(224, 229, 236) : ACCENT_SOFT);
-            JLabel jLabel2 = new JLabel(bl ? this.applyPlayerName(this.endingDescriptions.get(string)) : "\uc544\uc9c1 \ud655\uc778\ud558\uc9c0 \ubabb\ud55c \uc5d4\ub529");
+            JLabel jLabel2 = new JLabel(bl ? this.applyPlayerName(this.endingDescriptions.get(string)) : "아직 확인하지 못한 엔딩");
             jLabel2.setFont(new Font("Malgun Gothic", 0, 12));
             jLabel2.setForeground(new Color(181, 188, 199));
             jPanel.add(jLabel);
@@ -1237,14 +1237,14 @@ extends JFrame {
     // 화자 이름을 표준 캐릭터 이미지 파일명에 매핑한다.
     private String characterImageForSpeaker(String string) {
         return switch (string == null ? DEFAULT_PLAYER_NAME : string.strip()) {
-            case "\ud50c\ub808\uc774\uc5b4" -> "ch_player.png";
-            case "\uad50\uc7a5" -> "ch_principal.png";
-            case "\uc591\uc9c0\uc601" -> "ch_yang_jiyeong.png";
-            case "\uae40\ud604\uc9c4", "\ud604\uc9c4" -> "ch_kim_hyeonjin.png";
-            case "\uc8fc\ub2e4\uc601", "\ub2e4\uc601" -> "ch_ju_dayeong.png";
-            case "\ud55c\uc2b9\uc900", "\uc2b9\uc900" -> "ch_han_seungjun.png";
-            case "\uae40\uc900\uc601", "\uc900\uc601" -> "ch_kim_junyeong.png";
-            case "\uae40\ud0dc\ud615", "\ud0dc\ud615" -> "ch_kim_taehyeong.png";
+            case "플레이어" -> "ch_player.png";
+            case "교장" -> "ch_principal.png";
+            case "양지영" -> "ch_yang_jiyeong.png";
+            case "김현진", "현진" -> "ch_kim_hyeonjin.png";
+            case "주다영", "다영" -> "ch_ju_dayeong.png";
+            case "한승준", "승준" -> "ch_han_seungjun.png";
+            case "김준영", "준영" -> "ch_kim_junyeong.png";
+            case "김태형", "태형" -> "ch_kim_taehyeong.png";
             default -> DEFAULT_PLAYER_NAME;
         };
     }
@@ -1256,18 +1256,18 @@ extends JFrame {
         }
         String string2 = this.applyPlayerName(string);
         LinkedHashMap<String, String> linkedHashMap = new LinkedHashMap<String, String>();
-        this.collectNarrationMention(linkedHashMap, string2, "\uc591\uc9c0\uc601", "ch_yang_jiyeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uae40\ud604\uc9c4", "ch_kim_hyeonjin.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\ud604\uc9c4", "ch_kim_hyeonjin.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uc8fc\ub2e4\uc601", "ch_ju_dayeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\ub2e4\uc601", "ch_ju_dayeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\ud55c\uc2b9\uc900", "ch_han_seungjun.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uc2b9\uc900", "ch_han_seungjun.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uae40\uc900\uc601", "ch_kim_junyeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uc900\uc601", "ch_kim_junyeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uae40\ud0dc\ud615", "ch_kim_taehyeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\ud0dc\ud615", "ch_kim_taehyeong.png");
-        this.collectNarrationMention(linkedHashMap, string2, "\uad50\uc7a5", "ch_principal.png");
+        this.collectNarrationMention(linkedHashMap, string2, "양지영", "ch_yang_jiyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "김현진", "ch_kim_hyeonjin.png");
+        this.collectNarrationMention(linkedHashMap, string2, "현진", "ch_kim_hyeonjin.png");
+        this.collectNarrationMention(linkedHashMap, string2, "주다영", "ch_ju_dayeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "다영", "ch_ju_dayeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "한승준", "ch_han_seungjun.png");
+        this.collectNarrationMention(linkedHashMap, string2, "승준", "ch_han_seungjun.png");
+        this.collectNarrationMention(linkedHashMap, string2, "김준영", "ch_kim_junyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "준영", "ch_kim_junyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "김태형", "ch_kim_taehyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "태형", "ch_kim_taehyeong.png");
+        this.collectNarrationMention(linkedHashMap, string2, "교장", "ch_principal.png");
         if (linkedHashMap.size() == 1) {
             return (String)linkedHashMap.values().iterator().next();
         }
@@ -1422,7 +1422,7 @@ extends JFrame {
     // 스크립트의 "플레이어" 토큰을 현재 입력한 이름으로 치환한다.
     private String applyPlayerName(String string) {
         String string2 = this.state.playerName == null || this.state.playerName.isBlank() ? DEFAULT_PLAYER_NAME : this.state.playerName.strip();
-        return string.replace("\ud50c\ub808\uc774\uc5b4", string2);
+        return string.replace("플레이어", string2);
     }
 
     // 현재 인덱스의 페이지를 화면 상태에 반영한다.
@@ -1526,7 +1526,7 @@ extends JFrame {
     private void showRestartOverlay() {
         this.choicesPanel.removeAll();
         this.choicesPanel.setLayout(new GridLayout(1, 1, 0, 0));
-        JButton jButton = this.createMenuButton("\ub2e4\uc2dc \uc2dc\uc791", this::showStartScreen);
+        JButton jButton = this.createMenuButton("다시 시작", this::showStartScreen);
         jButton.setHorizontalAlignment(0);
         jButton.setPreferredSize(new Dimension(220, 58));
         this.choicesPanel.add(jButton);
@@ -1642,7 +1642,7 @@ extends JFrame {
         // 단서는 한 번만 추가하고 증거판에도 같은 키를 남긴다.
         void unlockClue(String string) {
             if (this.clues.add(string)) {
-                this.evidenceBoard.put(string, "\ud655\ubcf4");
+                this.evidenceBoard.put(string, "확보");
             }
         }
 
@@ -1765,7 +1765,7 @@ extends JFrame {
             Object object = this.parseValue();
             this.skipWhitespace();
             if (this.index != this.source.length()) {
-                throw this.error("JSON \ub05d\uc5d0 \ubd88\ud544\uc694\ud55c \ubb38\uc790\uac00 \ub0a8\uc544 \uc788\uc2b5\ub2c8\ub2e4.");
+                throw this.error("JSON 끝에 불필요한 문자가 남아 있습니다.");
             }
             return object;
         }
@@ -1774,7 +1774,7 @@ extends JFrame {
         private Object parseValue() {
             this.skipWhitespace();
             if (this.index >= this.source.length()) {
-                throw this.error("\uac12\uc774 \ud544\uc694\ud55c \uc704\uce58\uc5d0\uc11c JSON\uc774 \ub05d\ub0ac\uc2b5\ub2c8\ub2e4.");
+                throw this.error("값이 필요한 위치에서 JSON이 끝났습니다.");
             }
             char c = this.source.charAt(this.index);
             return switch (c) {
@@ -1784,7 +1784,7 @@ extends JFrame {
                 case 't' -> this.parseLiteral("true", Boolean.TRUE);
                 case 'f' -> this.parseLiteral("false", Boolean.FALSE);
                 case 'n' -> this.parseLiteral("null", null);
-                default -> throw this.error("\uc9c0\uc6d0\ud558\uc9c0 \uc54a\ub294 JSON \uac12 \uc2dc\uc791 \ubb38\uc790: " + c);
+                default -> throw this.error("지원하지 않는 JSON 값 시작 문자: " + c);
             };
         }
 
@@ -1842,7 +1842,7 @@ extends JFrame {
                 }
                 if (c == '\\') {
                     if (this.index >= this.source.length()) {
-                        throw this.error("\ubb38\uc790\uc5f4 escape\uac00 \uc911\uac04\uc5d0 \ub05d\ub0ac\uc2b5\ub2c8\ub2e4.");
+                        throw this.error("문자열 escape가 중간에 끝났습니다.");
                     }
                     char c2 = this.source.charAt(this.index++);
                     switch (c2) {
@@ -1877,17 +1877,17 @@ extends JFrame {
                             continue block9;
                         }
                     }
-                    throw this.error("\uc9c0\uc6d0\ud558\uc9c0 \uc54a\ub294 escape \ubb38\uc790: " + c2);
+                    throw this.error("지원하지 않는 escape 문자: " + c2);
                 }
                 stringBuilder.append(c);
             }
-            throw this.error("\ubb38\uc790\uc5f4\uc774 \ub2eb\ud788\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.");
+            throw this.error("문자열이 닫히지 않았습니다.");
         }
 
         // \\uXXXX 형태의 유니코드 escape를 실제 문자로 바꾼다.
         private char parseUnicodeEscape() {
             if (this.index + 4 > this.source.length()) {
-                throw this.error("\uc720\ub2c8\ucf54\ub4dc escape \uae38\uc774\uac00 \ubd80\uc871\ud569\ub2c8\ub2e4.");
+                throw this.error("유니코드 escape 길이가 부족합니다.");
             }
             String string = this.source.substring(this.index, this.index + 4);
             this.index += 4;
@@ -1895,14 +1895,14 @@ extends JFrame {
                 return (char)Integer.parseInt(string, 16);
             }
             catch (NumberFormatException numberFormatException) {
-                throw this.error("\uc720\ud6a8\ud558\uc9c0 \uc54a\uc740 \uc720\ub2c8\ucf54\ub4dc escape: " + string);
+                throw this.error("유효하지 않은 유니코드 escape: " + string);
             }
         }
 
         // true/false/null 같은 고정 리터럴을 검증하며 소비한다.
         private Object parseLiteral(String string, Object object) {
             if (!this.source.startsWith(string, this.index)) {
-                throw this.error("\uc608\uc0c1\ud55c \ub9ac\ud130\ub7f4\uc774 \uc544\ub2d9\ub2c8\ub2e4: " + string);
+                throw this.error("예상한 리터럴이 아닙니다: " + string);
             }
             this.index += string.length();
             return object;
@@ -1919,7 +1919,7 @@ extends JFrame {
         private void expect(char c) {
             this.skipWhitespace();
             if (this.index >= this.source.length() || this.source.charAt(this.index) != c) {
-                throw this.error("\uc608\uc0c1\ud55c \ubb38\uc790 '" + c + "'\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.");
+                throw this.error("예상한 문자 '" + c + "'를 찾지 못했습니다.");
             }
             ++this.index;
         }
